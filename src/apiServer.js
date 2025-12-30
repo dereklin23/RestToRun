@@ -1,7 +1,7 @@
 import express from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import mergeData from "./fitnessDataService.js";
+import mergeData from "./services/fitnessDataService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -10,7 +10,7 @@ const app = express();
 const port = 3000;
 
 // Serve frontend
-app.use(express.static("public", { index: "index.html" }));
+app.use(express.static(join(__dirname, "..", "public"), { index: "dashboard.html" }));
 
 function formatSeconds(seconds) {
   if (!seconds || seconds <= 0) return null;
@@ -120,6 +120,28 @@ app.get("/data", async (req, res) => {
           }
         }
         
+        // Calculate weighted average cadence (weighted by distance)
+        const runsWithCadence = value.runs.filter(r => r.cadence !== null && r.cadence > 0);
+        let avgCadence = null;
+        if (runsWithCadence.length > 0) {
+          let totalWeightedCadence = 0;
+          let totalDistance = 0;
+          runsWithCadence.forEach(r => {
+            totalWeightedCadence += r.cadence * r.distance;
+            totalDistance += r.distance;
+            // Debug: log cadence values being used
+            if (date === "2025-12-30" || runsWithCadence.length <= 2) {
+              console.log(`Cadence for run on ${date}: ${r.cadence} SPM (distance: ${(r.distance / 1609.34).toFixed(2)} miles)`);
+            }
+          });
+          if (totalDistance > 0) {
+            avgCadence = Math.round(totalWeightedCadence / totalDistance);
+            if (date === "2025-12-30" || runsWithCadence.length <= 2) {
+              console.log(`Weighted avg cadence for ${date}: ${avgCadence} SPM`);
+            }
+          }
+        }
+        
         // Debug Dec 30 specifically
         if (date === "2025-12-30") {
           console.log(`Processing Dec 30:`, {
@@ -130,12 +152,14 @@ app.get("/data", async (req, res) => {
             avgPace: avgPace,
             avgHeartrate: avgHeartrate,
             maxHeartrate: maxHeartrate,
+            avgCadence: avgCadence,
             runs: value.runs ? value.runs.map(r => ({ 
               distance: r.distance, 
               date: r.date,
               pace: r.pace,
               avgHR: r.averageHeartrate,
-              maxHR: r.maxHeartrate
+              maxHR: r.maxHeartrate,
+              cadence: r.cadence
             })) : []
           });
         }
@@ -154,7 +178,8 @@ app.get("/data", async (req, res) => {
           
           pace: avgPace, // min/mile
           averageHeartrate: avgHeartrate, // bpm
-          maxHeartrate: maxHeartrate // bpm
+          maxHeartrate: maxHeartrate, // bpm
+          cadence: avgCadence // steps per minute (SPM)
         };
       });
 
@@ -168,13 +193,13 @@ app.get("/data", async (req, res) => {
   }
 });
 
-// Fallback: serve index.html for all other routes (SPA support)
+// Fallback: serve dashboard.html for all other routes (SPA support)
 // This must be last, after all other routes and static files
 app.use((req, res) => {
-  // Serve index.html for all non-API routes (SPA routing support)
-  res.sendFile(join(__dirname, "public", "index.html"), (err) => {
+  // Serve dashboard.html for all non-API routes (SPA routing support)
+  res.sendFile(join(__dirname, "..", "public", "dashboard.html"), (err) => {
     if (err) {
-      console.error("Error sending index.html:", err);
+      console.error("Error sending dashboard.html:", err);
       res.status(500).send("Error loading page");
     }
   });
@@ -183,3 +208,4 @@ app.use((req, res) => {
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
+

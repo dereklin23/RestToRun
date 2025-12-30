@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Training + Sleep</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+      padding: 40px 20px;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      min-height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      font-size: 2.2em;
+      text-align: center;
+      margin-bottom: 40px;
+      color: #2c3e50;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+    .chart-container {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto 40px;
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+    canvas {
+      width: 100% !important;
+      max-width: 100%;
+      height: 400px !important;
+      min-height: 300px !important;
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      position: relative !important;
+    }
+    
+    @media (max-width: 1300px) {
+      .chart-container {
+        margin: 0 20px 40px;
+        padding: 25px;
+      }
+      canvas {
+        height: 350px !important;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      canvas {
+        height: 300px !important;
+      }
+    }
+    #sleepChart, #distanceChart {
+      position: relative;
+      z-index: 1;
+    }
+    .date-selector {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto 30px;
+      background: white;
+      border-radius: 12px;
+      padding: 25px 30px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .date-selector label {
+      font-weight: 600;
+      color: #2c3e50;
+      font-size: 14px;
+    }
+    .date-selector input[type="date"] {
+      padding: 10px 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #2c3e50;
+      background: white;
+      transition: border-color 0.2s;
+    }
+    .date-selector input[type="date"]:focus {
+      outline: none;
+      border-color: #3498db;
+    }
+    .date-selector button {
+      padding: 10px 25px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-left: auto;
+    }
+    .date-selector button:hover {
+      background: #2980b9;
+    }
+    .date-selector button:active {
+      background: #21618c;
+    }
+    .date-presets {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .date-presets button {
+      padding: 8px 16px;
+      background: #ecf0f1;
+      color: #2c3e50;
+      border: 2px solid #bdc3c7;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .date-presets button:hover {
+      background: #d5dbdb;
+      border-color: #95a5a6;
+    }
+    .date-presets button.active {
+      background: #3498db;
+      color: white;
+      border-color: #3498db;
+    }
+    @media (max-width: 768px) {
+      .date-selector {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .date-selector button {
+        margin-left: 0;
+        width: 100%;
+      }
+      .date-presets {
+        width: 100%;
+      }
+      .date-presets button {
+        flex: 1;
+        min-width: 0;
+      }
+    }
+    .stats-container {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto 30px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.08);
+    }
+    .stat-card .stat-label {
+      font-size: 13px;
+      color: #7f8c8d;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .stat-card .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 5px;
+    }
+    .stat-card .stat-unit {
+      font-size: 14px;
+      color: #95a5a6;
+      font-weight: 500;
+    }
+    .stat-card.sleep .stat-value {
+      color: #3498db;
+    }
+    .stat-card.distance .stat-value {
+      color: #e74c3c;
+    }
+    .stat-card.average .stat-value {
+      color: #27ae60;
+    }
+    .stat-card.total .stat-value {
+      color: #9b59b6;
+    }
+    .stat-card .stat-value[style*="color"] {
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="date-selector">
+    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap; flex: 1;">
+      <label for="startDate">Start Date:</label>
+      <input type="date" id="startDate">
+      <label for="endDate">End Date:</label>
+      <input type="date" id="endDate">
+    </div>
+    <div class="date-presets">
+      <button data-preset="last7">Last 7 Days</button>
+      <button data-preset="last30">Last 30 Days</button>
+      <button data-preset="thisMonth">This Month</button>
+      <button data-preset="december">December</button>
+      <button data-preset="lastMonth">Last Month</button>
+    </div>
+    <button id="updateDates">Update Range</button>
+  </div>
+
+  <h1 id="pageTitle">December 2025 — Training & Sleep</h1>
+
+  <div class="stats-container" id="statsContainer">
+    <!-- Stats cards will be inserted here -->
+  </div>
+
+  <div class="chart-container">
+    <canvas id="sleepChart"></canvas>
+  </div>
+  <div class="chart-container">
+    <canvas id="distanceChart"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

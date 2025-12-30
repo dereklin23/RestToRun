@@ -54,6 +54,34 @@ function initCharts() {
 
   isInitializing = true;
   chartsInitialized = true;
+  
+  // Set default to last 7 days if dates are not set
+  const startInput = document.getElementById('startDate');
+  const endInput = document.getElementById('endDate');
+  if (startInput && endInput && !startInput.value) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 6); // 7 days ago (including today)
+    
+    const formatDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    startInput.value = formatDate(startDate);
+    endInput.value = formatDate(today);
+    
+    // Mark "Last 7 Days" button as active
+    const last7Button = document.querySelector('[data-preset="last7"]');
+    if (last7Button) {
+      document.querySelectorAll('[data-preset]').forEach(btn => btn.classList.remove('active'));
+      last7Button.classList.add('active');
+    }
+  }
+  
   loadDataAndCreateCharts();
 }
 
@@ -145,7 +173,7 @@ function parseHours(str) {
   }
 }
 
-function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepScores, readinessScores, pace, averageHeartrate, maxHeartrate) {
+function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepScores, readinessScores, pace, averageHeartrate, maxHeartrate, cadence) {
   const statsContainer = document.getElementById('statsContainer');
   if (!statsContainer) return;
   
@@ -157,6 +185,7 @@ function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepSco
   const validPace = pace.filter(p => p !== null && p > 0);
   const validAvgHR = averageHeartrate.filter(hr => hr !== null && hr > 0);
   const validMaxHR = maxHeartrate.filter(hr => hr !== null && hr > 0);
+  const validCadence = cadence.filter(c => c !== null && c > 0);
   
   const totalSleepHours = validSleep.reduce((sum, h) => sum + h, 0);
   const avgSleepHours = validSleep.length > 0 ? totalSleepHours / validSleep.length : 0;
@@ -211,6 +240,23 @@ function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepSco
   }
   
   const maxHR = validMaxHR.length > 0 ? Math.max(...validMaxHR) : null;
+  
+  // Calculate cadence statistics (weighted by distance)
+  let avgCadence = null;
+  if (validCadence.length > 0) {
+    // Weighted by distance
+    let totalWeightedCadence = 0;
+    let totalDist = 0;
+    data.forEach((d, i) => {
+      if (cadence[i] !== null && cadence[i] > 0 && distance[i] > 0) {
+        totalWeightedCadence += cadence[i] * distance[i];
+        totalDist += distance[i];
+      }
+    });
+    if (totalDist > 0) {
+      avgCadence = totalWeightedCadence / totalDist;
+    }
+  }
   
   // Calculate crowns (score >= 85)
   const sleepCrowns = validSleepScores.filter(s => s >= 85).length;
@@ -304,6 +350,11 @@ function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepSco
       <div class="stat-value" style="color: #c0392b;">${maxHR !== null ? maxHR : 'N/A'}</div>
       <div class="stat-unit">bpm</div>
     </div>
+    <div class="stat-card" style="border-left: 4px solid #9b59b6;">
+      <div class="stat-label">Avg Cadence</div>
+      <div class="stat-value" style="color: #9b59b6;">${avgCadence !== null ? Math.round(avgCadence) : 'N/A'}</div>
+      <div class="stat-unit">spm</div>
+    </div>
     <div class="stat-card">
       <div class="stat-label">Sleep Breakdown</div>
       <div class="stat-value" style="font-size: 24px; margin-bottom: 8px;">
@@ -381,8 +432,31 @@ async function loadDataAndCreateCharts(startDate, endDate) {
     if (!startDate || !endDate) {
       const startInput = document.getElementById('startDate');
       const endInput = document.getElementById('endDate');
-      startDate = startInput ? startInput.value : '2025-12-01';
-      endDate = endInput ? endInput.value : '2025-12-31';
+      
+      if (startInput && endInput && startInput.value && endInput.value) {
+        startDate = startInput.value;
+        endDate = endInput.value;
+      } else {
+        // Default to last 7 days if inputs are empty
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const start = new Date(today);
+        start.setDate(today.getDate() - 6); // 7 days ago (including today)
+        
+        const formatDate = (date) => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
+        
+        startDate = formatDate(start);
+        endDate = formatDate(today);
+        
+        // Set the input values
+        if (startInput) startInput.value = startDate;
+        if (endInput) endInput.value = endDate;
+      }
     }
 
     // Update page title
@@ -431,6 +505,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
     const pace = data.map(d => d.pace !== null && d.pace !== undefined ? parseFloat(d.pace) : null);
     const averageHeartrate = data.map(d => d.averageHeartrate !== null && d.averageHeartrate !== undefined ? parseFloat(d.averageHeartrate) : null);
     const maxHeartrate = data.map(d => d.maxHeartrate !== null && d.maxHeartrate !== undefined ? parseFloat(d.maxHeartrate) : null);
+    const cadence = data.map(d => d.cadence !== null && d.cadence !== undefined ? parseFloat(d.cadence) : null);
     
     // Log Dec 30 distance value after creating distance array
     const dec30FinalIndex = data.findIndex(d => d.date === "2025-12-30");
@@ -447,7 +522,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
     }
     
     // Calculate and display statistics
-    updateStatistics(data, totalSleep, light, rem, deep, distance, sleepScores, readinessScores, pace, averageHeartrate, maxHeartrate);
+    updateStatistics(data, totalSleep, light, rem, deep, distance, sleepScores, readinessScores, pace, averageHeartrate, maxHeartrate, cadence);
     
     // Debug: log data to verify it's correct
     console.log("Chart data summary:", {
@@ -853,9 +928,63 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           borderColor: "rgba(52, 152, 219, 1)",
           backgroundColor: "rgba(52, 152, 219, 0.1)",
           fill: true,
-          spanGaps: false, // Don't skip missing data points
-          // Ensure all points are drawn
-          showLine: true
+          spanGaps: false,
+          showLine: true,
+          yAxisID: 'y'
+        },
+        {
+          label: "Pace (min/mile)",
+          data: pace,
+          tension: 0.4,
+          borderWidth: 2,
+          borderDash: [3, 3],
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          pointBackgroundColor: "rgba(52, 152, 219, 0.7)",
+          pointBorderColor: "rgba(52, 152, 219, 0.9)",
+          pointBorderWidth: 1.5,
+          borderColor: "rgba(52, 152, 219, 0.7)",
+          backgroundColor: "rgba(52, 152, 219, 0.05)",
+          fill: false,
+          spanGaps: false,
+          showLine: true,
+          yAxisID: 'y2'
+        },
+        {
+          label: "Heart Rate (bpm)",
+          data: averageHeartrate,
+          tension: 0.4,
+          borderWidth: 1.5,
+          borderDash: [5, 5],
+          pointRadius: 2,
+          pointHoverRadius: 4,
+          pointBackgroundColor: "rgba(231, 76, 60, 0.6)",
+          pointBorderColor: "rgba(231, 76, 60, 0.8)",
+          pointBorderWidth: 1,
+          borderColor: "rgba(231, 76, 60, 0.6)",
+          backgroundColor: "rgba(231, 76, 60, 0.05)",
+          fill: false,
+          spanGaps: false,
+          showLine: true,
+          yAxisID: 'y1'
+        },
+        {
+          label: "Cadence (spm)",
+          data: cadence,
+          tension: 0.4,
+          borderWidth: 1.5,
+          borderDash: [5, 5],
+          pointRadius: 2,
+          pointHoverRadius: 4,
+          pointBackgroundColor: "rgba(155, 89, 182, 0.6)",
+          pointBorderColor: "rgba(155, 89, 182, 0.8)",
+          pointBorderWidth: 1,
+          borderColor: "rgba(155, 89, 182, 0.6)",
+          backgroundColor: "rgba(155, 89, 182, 0.05)",
+          fill: false,
+          spanGaps: false,
+          showLine: true,
+          yAxisID: 'y1'
         }
       ]
     },
@@ -872,7 +1001,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
       plugins: {
         title: {
           display: true,
-          text: "Running Distance",
+          text: "Running Distance, Heart Rate & Cadence",
           font: {
             size: 20,
             weight: '600',
@@ -884,7 +1013,17 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           }
         },
         legend: {
-          display: false
+          display: true,
+          position: 'top',
+          labels: {
+            font: {
+              size: 13,
+              weight: '500'
+            },
+            padding: 15,
+            usePointStyle: true,
+            color: '#34495e'
+          }
         },
         tooltip: {
           backgroundColor: 'rgba(0, 0, 0, 0.85)',
@@ -912,7 +1051,20 @@ async function loadDataAndCreateCharts(startDate, endDate) {
             },
             label: function(context) {
               const value = context.parsed.y;
-              return `Distance: ${value.toFixed(2)} miles`;
+              const datasetLabel = context.dataset.label;
+              
+              if (datasetLabel.includes('Distance')) {
+                return `Distance: ${value.toFixed(2)} miles`;
+              } else if (datasetLabel.includes('Pace')) {
+                const minutes = Math.floor(value);
+                const seconds = Math.round((value - minutes) * 60);
+                return `Pace: ${minutes}:${seconds.toString().padStart(2, '0')} min/mile`;
+              } else if (datasetLabel.includes('Heart Rate')) {
+                return `Heart Rate: ${Math.round(value)} bpm`;
+              } else if (datasetLabel.includes('Cadence')) {
+                return `Cadence: ${Math.round(value)} spm`;
+              }
+              return `${datasetLabel}: ${value}`;
             }
           }
         }
@@ -943,6 +1095,9 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           offset: false
         },
         y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
           beginAtZero: true,
           grid: {
             color: 'rgba(0, 0, 0, 0.06)',
@@ -951,12 +1106,49 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           },
           title: { 
             display: true, 
-            text: "Miles",
+            text: "Distance (miles)",
             font: {
               size: 13,
               weight: '600'
             },
-            color: '#34495e',
+            color: 'rgba(52, 152, 219, 1)',
+            padding: {
+              bottom: 10,
+              top: 5
+            }
+          },
+          ticks: {
+            font: {
+              size: 11,
+              weight: '500'
+            },
+            color: 'rgba(52, 152, 219, 1)',
+            padding: 10,
+            callback: function(value) {
+              return value.toFixed(1);
+            }
+          },
+          border: {
+            display: false
+          }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          beginAtZero: false,
+          grid: {
+            display: false,
+            drawBorder: false
+          },
+          title: { 
+            display: true, 
+            text: "HR (bpm) / Cadence (spm)",
+            font: {
+              size: 13,
+              weight: '600'
+            },
+            color: '#7f8c8d',
             padding: {
               bottom: 10,
               top: 5
@@ -970,7 +1162,46 @@ async function loadDataAndCreateCharts(startDate, endDate) {
             color: '#7f8c8d',
             padding: 10,
             callback: function(value) {
-              return value.toFixed(1);
+              return Math.round(value);
+            }
+          },
+          border: {
+            display: false
+          }
+        },
+        y2: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          beginAtZero: false,
+          grid: {
+            display: false,
+            drawBorder: false
+          },
+          title: { 
+            display: true, 
+            text: "Pace (min/mile)",
+            font: {
+              size: 13,
+              weight: '600'
+            },
+            color: 'rgba(52, 152, 219, 0.7)',
+            padding: {
+              bottom: 10,
+              top: 5
+            }
+          },
+          ticks: {
+            font: {
+              size: 11,
+              weight: '500'
+            },
+            color: 'rgba(52, 152, 219, 0.7)',
+            padding: 10,
+            callback: function(value) {
+              const minutes = Math.floor(value);
+              const seconds = Math.round((value - minutes) * 60);
+              return `${minutes}:${seconds.toString().padStart(2, '0')}`;
             }
           },
           border: {

@@ -84,6 +84,15 @@ async function getStravaActivities() {
         pace = timeMinutes / distanceMiles; // min/mile
       }
       
+      // Strava reports cadence per foot, so multiply by 2 to get total steps per minute
+      let cadence = null;
+      if (a.average_cadence && a.average_cadence > 0) {
+        const originalCadence = a.average_cadence;
+        cadence = originalCadence * 2;
+        // Debug: log cadence multiplication
+        console.log(`Cadence conversion for ${dateStr}: ${originalCadence} (Strava per foot) -> ${cadence} (total SPM)`);
+      }
+      
       return {
         date: dateStr,
         distance: a.distance, // meters
@@ -92,6 +101,7 @@ async function getStravaActivities() {
         pace: pace ? +(pace.toFixed(2)) : null, // min/mile, rounded to 2 decimals
         averageHeartrate: a.average_heartrate || null, // bpm
         maxHeartrate: a.max_heartrate || null, // bpm
+        cadence: cadence, // steps per minute (SPM) - already multiplied by 2
         movingTime: a.moving_time || null // seconds
       };
     });
@@ -101,7 +111,8 @@ async function getStravaActivities() {
   console.log("Recent Strava runs (first 10):", topRuns.map(r => ({ 
     date: r.date, 
     distance: (r.distance / 1609.34).toFixed(2) + " miles",
-    name: r.name
+    name: r.name,
+    cadence: r.cadence ? r.cadence + " spm" : "N/A"
   })));
   console.log("Total runs fetched:", runs.length);
   console.log("Date range of runs:", runs.length > 0 ? {
