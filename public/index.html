@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>December 2025 Runs & Sleep</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    #chartContainer {
+      width: 2000px;
+      height: 1000px;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+  <h2>December 2025 Runs & Sleep</h2>
+  <div id="chartContainer">
+    <canvas id="myChart"></canvas>
+  </div>
+
+  <script>
+    // Example run data
+    const runs = [
+      { date: '2025-12-01', distance: 5 },
+      { date: '2025-12-03', distance: 6 },
+      { date: '2025-12-10', distance: 8 },
+      { date: '2025-12-15', distance: 10 },
+      { date: '2025-12-22', distance: 7 }
+    ];
+
+    // Example sleep data
+    const sleep = [
+      { date: '2025-12-01', hours: 7 },
+      { date: '2025-12-03', hours: 6.5 },
+      { date: '2025-12-10', hours: 8 },
+      { date: '2025-12-15', hours: 7.5 },
+      { date: '2025-12-22', hours: 6 }
+    ];
+
+    // Filter December 2025 data
+    const decemberRuns = runs.filter(run => {
+      const d = new Date(run.date);
+      return d.getFullYear() === 2025 && d.getMonth() === 11;
+    });
+
+    const decemberSleep = sleep.filter(s => {
+      const d = new Date(s.date);
+      return d.getFullYear() === 2025 && d.getMonth() === 11;
+    });
+
+    const labels = decemberRuns.map(run => run.date);
+    const runData = decemberRuns.map(run => run.distance);
+    const sleepData = decemberSleep.map(s => s.hours);
+
+    const ctx = document.getElementById('myChart').getContext('2d');
+    ctx.canvas.width = 2000;
+    ctx.canvas.height = 1000;
+
+    const myChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Distance (miles)',
+            data: runData,
+            borderColor: 'rgba(75, 192, 192, 1)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            fill: true,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Sleep (hours)',
+            data: sleepData,
+            borderColor: 'rgba(255, 99, 132, 1)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            fill: true,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: false, // important to keep canvas size
+        plugins: {
+          legend: {
+            position: 'top'
+          },
+          title: {
+            display: true,
+            text: 'December 2025 Runs & Sleep'
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Distance (miles)'
+            }
+          },
+          y1: {
+            beginAtZero: true,
+            position: 'right',
+            title: {
+              display: true,
+              text: 'Sleep (hours)'
+            },
+            grid: {
+              drawOnChartArea: false
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Date'
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
