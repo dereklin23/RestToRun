@@ -54,6 +54,9 @@ async function startServer() {
   // Setup session store first
   const sessionStore = await setupRedis();
   
+  // Trust proxy for Railway (needed for secure cookies)
+  app.set('trust proxy', 1);
+  
   // Configure session middleware
   app.use(session({
     store: sessionStore,
@@ -63,7 +66,8 @@ async function startServer() {
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
-      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: 'lax' // Allow cookies on redirects
     }
   }));
 
@@ -74,6 +78,8 @@ async function startServer() {
   // Log all incoming requests for debugging
   app.use((req, res, next) => {
     console.log(`[HTTP] ${req.method} ${req.path} from ${req.ip}`);
+    console.log(`[SESSION] Session ID: ${req.sessionID || 'none'}`);
+    console.log(`[SESSION] Has Strava: ${!!req.session?.stravaTokens}, Has Oura: ${!!req.session?.ouraToken}`);
     next();
   });
 
@@ -158,8 +164,15 @@ async function startServer() {
           expiresAt: data.expires_at
         };
         
-        console.log('[SUCCESS] Strava connected successfully');
-        res.redirect('/login.html?strava=connected');
+        // Explicitly save session before redirect
+        req.session.save((err) => {
+          if (err) {
+            console.error('[ERROR] Session save error:', err);
+            return res.redirect('/login.html?error=session_save_failed');
+          }
+          console.log('[SUCCESS] Strava connected successfully');
+          res.redirect('/login.html?strava=connected');
+        });
       } else {
         console.log('[ERROR] Strava token exchange failed:', data);
         res.redirect('/login.html?error=strava_token_failed');
@@ -210,8 +223,15 @@ async function startServer() {
           refreshToken: data.refresh_token
         };
         
-        console.log('[SUCCESS] Oura connected successfully');
-        res.redirect('/login.html?oura=connected');
+        // Explicitly save session before redirect
+        req.session.save((err) => {
+          if (err) {
+            console.error('[ERROR] Session save error:', err);
+            return res.redirect('/login.html?error=session_save_failed');
+          }
+          console.log('[SUCCESS] Oura connected successfully');
+          res.redirect('/login.html?oura=connected');
+        });
       } else {
         console.log('[ERROR] Oura token exchange failed:', data);
         res.redirect('/login.html?error=oura_token_failed');
