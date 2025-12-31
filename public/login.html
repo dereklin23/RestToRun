@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - RestToRun</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-container {
+      background: white;
+      border-radius: 20px;
+      padding: 60px 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      font-size: 42px;
+      color: #2c3e50;
+      margin-bottom: 10px;
+      font-weight: 800;
+    }
+    .tagline {
+      color: #7f8c8d;
+      font-size: 16px;
+      margin-bottom: 40px;
+    }
+    .connect-section {
+      margin: 30px 0;
+    }
+    .connect-button {
+      display: block;
+      width: 100%;
+      padding: 18px 30px;
+      margin: 15px 0;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .connect-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+    .strava-button {
+      background-color: #fc4c02;
+      color: white;
+    }
+    .oura-button {
+      background-color: #0071ce;
+      color: white;
+    }
+    .status {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-left: auto;
+    }
+    .status.connected {
+      background-color: #27ae60;
+      color: white;
+    }
+    .status.disconnected {
+      background-color: #e0e0e0;
+      color: #7f8c8d;
+    }
+    .dashboard-button {
+      display: inline-block;
+      margin-top: 30px;
+      padding: 16px 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.3s ease;
+    }
+    .dashboard-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+    .dashboard-button:disabled {
+      background: #bdc3c7;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .info-text {
+      color: #7f8c8d;
+      font-size: 14px;
+      margin-top: 20px;
+      line-height: 1.6;
+    }
+    .emoji {
+      font-size: 24px;
+    }
+    .success-message {
+      background: #d4edda;
+      color: #155724;
+      padding: 12px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border: 1px solid #c3e6cb;
+      display: none;
+    }
+    .success-message.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h1>🏃‍♂️ RestToRun</h1>
+    <p class="tagline">Track your recovery and performance</p>
+    
+    <div class="success-message" id="logoutMessage">
+      ✓ Successfully logged out
+    </div>
+    
+    <div class="connect-section">
+      <p class="info-text">Connect your accounts to view your data</p>
+      
+      <a href="/auth/strava" class="connect-button strava-button" id="stravaButton">
+        <span class="emoji">🏃</span>
+        <span>Connect Strava</span>
+        <span class="status disconnected" id="stravaStatus">Not Connected</span>
+      </a>
+      
+      <a href="/auth/oura" class="connect-button oura-button" id="ouraButton">
+        <span class="emoji">💤</span>
+        <span>Connect Oura</span>
+        <span class="status disconnected" id="ouraStatus">Not Connected</span>
+      </a>
+    </div>
+    
+    <a href="/dashboard" class="dashboard-button" id="dashboardButton" style="display: none;">
+      Go to Dashboard
+    </a>
+    
+    <p class="info-text" style="margin-top: 30px;">
+      Both accounts must be connected to access your dashboard
+    </p>
+  </div>
+
+  <script>
+    async function checkAuthStatus() {
+      try {
+        const response = await fetch('/auth/status');
+        const status = await response.json();
+        
+        const stravaStatus = document.getElementById('stravaStatus');
+        const ouraStatus = document.getElementById('ouraStatus');
+        const dashboardButton = document.getElementById('dashboardButton');
+        
+        if (status.strava) {
+          stravaStatus.textContent = 'Connected';
+          stravaStatus.classList.remove('disconnected');
+          stravaStatus.classList.add('connected');
+        }
+        
+        if (status.oura) {
+          ouraStatus.textContent = 'Connected';
+          ouraStatus.classList.remove('disconnected');
+          ouraStatus.classList.add('connected');
+        }
+        
+        if (status.strava && status.oura) {
+          dashboardButton.style.display = 'inline-block';
+        }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+      }
+    }
+    
+    // Check for logout success message
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('logout') === 'success') {
+      const logoutMessage = document.getElementById('logoutMessage');
+      logoutMessage.classList.add('show');
+      
+      // Remove the query parameter from URL without reload
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Hide message after 5 seconds
+      setTimeout(() => {
+        logoutMessage.classList.remove('show');
+      }, 5000);
+    }
+    
+    // Check status on page load
+    checkAuthStatus();
+  </script>
+</body>
+</html>
+
