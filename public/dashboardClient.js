@@ -118,7 +118,7 @@ async function loadData(startDate, endDate) {
 }
 
 function formatDateRangeTitle(startDate, endDate) {
-  if (!startDate || !endDate) return "Training & Sleep";
+  if (!startDate || !endDate) return "Dashboard";
   
   const start = new Date(startDate);
   const end = new Date(endDate);
@@ -130,16 +130,16 @@ function formatDateRangeTitle(startDate, endDate) {
   
   // Same month and year
   if (startMonth === endMonth && startYear === endYear) {
-    return `${startMonth} ${startYear} — Training & Sleep`;
+    return `${startMonth} ${startYear}`;
   }
   
   // Same year, different months
   if (startYear === endYear) {
-    return `${startMonth} - ${endMonth} ${startYear} — Training & Sleep`;
+    return `${startMonth} - ${endMonth} ${startYear}`;
   }
   
   // Different years
-  return `${startMonth} ${startYear} - ${endMonth} ${endYear} — Training & Sleep`;
+  return `${startMonth} ${startYear} - ${endMonth} ${endYear}`;
 }
 
 function updatePageTitle(startDate, endDate) {
@@ -191,6 +191,7 @@ function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepSco
   
   const totalDistance = validDistance.reduce((sum, d) => sum + d, 0);
   const avgDistance = validDistance.length > 0 ? totalDistance / validDistance.length : 0;
+  const maxDistance = validDistance.length > 0 ? Math.max(...validDistance) : 0;
   
   const totalLight = light.reduce((sum, h) => sum + h, 0);
   const totalREM = rem.reduce((sum, h) => sum + h, 0);
@@ -206,6 +207,7 @@ function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepSco
   
   // Calculate pace statistics (weighted by distance)
   let avgPace = null;
+  let bestPace = null;
   if (validPace.length > 0 && validDistance.length > 0) {
     // Match pace with distance for weighted average
     let totalWeightedPace = 0;
@@ -219,6 +221,8 @@ function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepSco
     if (totalDist > 0) {
       avgPace = totalWeightedPace / totalDist;
     }
+    // Best (fastest) pace is the minimum value
+    bestPace = Math.min(...validPace);
   }
   
   // Calculate heart rate statistics
@@ -320,67 +324,84 @@ function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepSco
   } else {
     // Full comprehensive view for multiple days
     statsContainer.innerHTML = `
-      <div class="stat-card sleep">
-        <div class="stat-label">Average Sleep</div>
-        <div class="stat-value">${formatHours(avgSleepHours)}</div>
-        <div class="stat-unit">per night</div>
-      </div>
-      <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgSleepScore)};">
-        <div class="stat-label">Avg Sleep Score</div>
-        <div class="stat-value" style="color: ${getScoreColor(avgSleepScore)};">${avgSleepScore}</div>
-        <div class="stat-unit">${sleepCrowns > 0 ? `👑 ${sleepCrowns}` : ''}</div>
-      </div>
-      <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgReadinessScore)};">
-        <div class="stat-label">Avg Readiness</div>
-        <div class="stat-value" style="color: ${getScoreColor(avgReadinessScore)};">${avgReadinessScore}</div>
-        <div class="stat-unit">${readinessCrowns > 0 ? `👑 ${readinessCrowns}` : ''}</div>
-      </div>
-      <div class="stat-card" style="border-left: 4px solid #f39c12;">
-        <div class="stat-label">Total Crowns</div>
-        <div class="stat-value" style="color: #f39c12; font-size: 28px;">👑 ${totalCrowns}</div>
-        <div class="stat-unit">${sleepCrowns} sleep + ${readinessCrowns} readiness</div>
-      </div>
-      <div class="stat-card distance">
-        <div class="stat-label">Total Distance</div>
-        <div class="stat-value">${totalDistance.toFixed(1)}</div>
-        <div class="stat-unit">miles</div>
-      </div>
-      <div class="stat-card average">
-        <div class="stat-label">Avg Distance</div>
-        <div class="stat-value">${avgDistance.toFixed(1)}</div>
-        <div class="stat-unit">miles per run</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Runs</div>
-        <div class="stat-value">${daysWithRuns}</div>
-        <div class="stat-unit">total runs</div>
-      </div>
-      <div class="stat-card" style="border-left: 4px solid #3498db;">
-        <div class="stat-label">Avg Pace</div>
-        <div class="stat-value" style="color: #3498db;">${avgPace !== null ? formatPace(avgPace) : 'N/A'}</div>
-        <div class="stat-unit">min/mile</div>
-      </div>
-      <div class="stat-card" style="border-left: 4px solid #e74c3c;">
-        <div class="stat-label">Avg Heart Rate</div>
-        <div class="stat-value" style="color: #e74c3c;">${avgHR !== null ? Math.round(avgHR) : 'N/A'}</div>
-        <div class="stat-unit">bpm</div>
-      </div>
-      <div class="stat-card" style="border-left: 4px solid #c0392b;">
-        <div class="stat-label">Max Heart Rate</div>
-        <div class="stat-value" style="color: #c0392b;">${maxHR !== null ? maxHR : 'N/A'}</div>
-        <div class="stat-unit">bpm</div>
-      </div>
-      <div class="stat-card" style="border-left: 4px solid #9b59b6;">
-        <div class="stat-label">Avg Cadence</div>
-        <div class="stat-value" style="color: #9b59b6;">${avgCadence !== null ? Math.round(avgCadence) : 'N/A'}</div>
-        <div class="stat-unit">spm</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Sleep Breakdown</div>
-        <div class="stat-value" style="font-size: 24px; margin-bottom: 8px;">
-          ${daysWithSleep > 0 ? `${formatHours(totalLight / daysWithSleep)} / ${formatHours(totalREM / daysWithSleep)} / ${formatHours(totalDeep / daysWithSleep)}` : '0h / 0h / 0h'}
+      <div class="stats-column sleep-stats">
+        <div class="stats-column-title">😴 Recovery Metrics</div>
+        <!-- Sleep Stats (Left Side) -->
+        <div class="stat-card sleep">
+          <div class="stat-label">Average Sleep</div>
+          <div class="stat-value">${formatHours(avgSleepHours)}</div>
+          <div class="stat-unit">per night</div>
         </div>
-        <div class="stat-unit">Light / REM / Deep (avg)</div>
+        <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgSleepScore)};">
+          <div class="stat-label">Avg Sleep Score</div>
+          <div class="stat-value" style="color: ${getScoreColor(avgSleepScore)};">${avgSleepScore}</div>
+          <div class="stat-unit">${sleepCrowns > 0 ? `👑 ${sleepCrowns}` : ''}</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgReadinessScore)};">
+          <div class="stat-label">Avg Readiness</div>
+          <div class="stat-value" style="color: ${getScoreColor(avgReadinessScore)};">${avgReadinessScore}</div>
+          <div class="stat-unit">${readinessCrowns > 0 ? `👑 ${readinessCrowns}` : ''}</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid #f39c12;">
+          <div class="stat-label">Total Crowns</div>
+          <div class="stat-value" style="color: #f39c12; font-size: 28px;">👑 ${totalCrowns}</div>
+          <div class="stat-unit">${sleepCrowns} sleep + ${readinessCrowns} readiness</div>
+        </div>
+      </div>
+      
+      <div class="stats-column running-stats">
+        <div class="stats-column-title">🏃‍♂️ Performance Metrics</div>
+        <!-- Running Stats (Right Side) -->
+        <!-- Totals & Maximums (Top) -->
+        <div class="stat-card distance">
+          <div class="stat-label">Total Distance</div>
+          <div class="stat-value">${totalDistance.toFixed(1)}</div>
+          <div class="stat-unit">miles</div>
+        </div>
+        ${daysWithRuns > 1 ? `
+        <div class="stat-card" style="border-left: 4px solid #27ae60;">
+          <div class="stat-label">Longest Distance</div>
+          <div class="stat-value" style="color: #27ae60;">${maxDistance.toFixed(1)}</div>
+          <div class="stat-unit">miles</div>
+        </div>` : ''}
+        <div class="stat-card">
+          <div class="stat-label">Runs</div>
+          <div class="stat-value">${daysWithRuns}</div>
+          <div class="stat-unit">total runs</div>
+        </div>
+        ${validPace.length > 1 ? `
+        <div class="stat-card" style="border-left: 4px solid #2ecc71;">
+          <div class="stat-label">Fastest Pace</div>
+          <div class="stat-value" style="color: #2ecc71;">${bestPace !== null ? formatPace(bestPace) : 'N/A'}</div>
+          <div class="stat-unit">min/mile</div>
+        </div>` : ''}
+        <div class="stat-card" style="border-left: 4px solid #c0392b;">
+          <div class="stat-label">Max Heart Rate</div>
+          <div class="stat-value" style="color: #c0392b;">${maxHR !== null ? maxHR : 'N/A'}</div>
+          <div class="stat-unit">bpm</div>
+        </div>
+        
+        <!-- Averages (Bottom) -->
+        <div class="stat-card average">
+          <div class="stat-label">Avg Distance</div>
+          <div class="stat-value">${avgDistance.toFixed(1)}</div>
+          <div class="stat-unit">miles per run</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid #3498db;">
+          <div class="stat-label">Avg Pace</div>
+          <div class="stat-value" style="color: #3498db;">${avgPace !== null ? formatPace(avgPace) : 'N/A'}</div>
+          <div class="stat-unit">min/mile</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid #e74c3c;">
+          <div class="stat-label">Avg Heart Rate</div>
+          <div class="stat-value" style="color: #e74c3c;">${avgHR !== null ? Math.round(avgHR) : 'N/A'}</div>
+          <div class="stat-unit">bpm</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid #9b59b6;">
+          <div class="stat-label">Avg Cadence</div>
+          <div class="stat-value" style="color: #9b59b6;">${avgCadence !== null ? Math.round(avgCadence) : 'N/A'}</div>
+          <div class="stat-unit">spm</div>
+        </div>
       </div>
     `;
   }
@@ -1179,8 +1200,8 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           left: 50,
           right: 50
         } : {
-          left: 0,
-          right: 20  // Add padding on right to prevent last point from being truncated
+          left: 10,
+          right: 40  // Add padding on right to prevent last point from being cut off
         }
       },
       animation: {
@@ -1329,15 +1350,12 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           border: {
             display: false
           },
-          offset: false, // Keep all points evenly spaced
-          // Add space after last category to prevent truncation
+          offset: true, // Add padding on both sides to prevent point truncation
+          // For single day, center the point
           ...(isSingleDay ? { 
-            offset: true,
             min: -0.5, 
             max: 0.5 
-          } : {
-            max: labels.length - 0.5  // Add half category width after last point
-          })
+          } : {})
         },
         y: {
           type: 'linear',
