@@ -1,8 +1,8 @@
-# Training & Sleep Data Visualizer
+# RestToRun
 
 A comprehensive fitness dashboard that overlays and visualizes training data from Strava with sleep and readiness data from Oura Ring. Get insights into how your training correlates with your recovery metrics.
 
-![Training & Sleep Dashboard](https://img.shields.io/badge/Status-Active-success)
+![RestToRun Dashboard](https://img.shields.io/badge/Status-Active-success)
 ![Node.js](https://img.shields.io/badge/Node.js-v18+-green)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
@@ -49,15 +49,15 @@ A comprehensive fitness dashboard that overlays and visualizes training data fro
 ## 📁 Project Structure
 
 ```
-strava-oura/
+RestToRun/
 ├── public/
 │   ├── dashboardClient.js          # Client-side chart visualization
 │   ├── trainingDashboard.html      # Main dashboard UI
 │   └── index.html                  # Entry point
 ├── src/
-│   ├── fitnessApiServer.js         # Express API server
+│   ├── apiServer.js                # Express API server
 │   └── services/
-│       └── stravaOuraIntegration.js # Strava & Oura API integration
+│       └── fitnessDataService.js   # Strava & Oura API integration
 ├── .env                             # Environment variables (not in repo)
 ├── package.json
 └── README.md
@@ -74,8 +74,8 @@ strava-oura/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/dereklin23/TrainingAndSleepDataVisualizer.git
-   cd strava-oura
+   git clone https://github.com/dereklin23/RestToRun.git
+   cd RestToRun
    ```
 
 2. **Install dependencies**
