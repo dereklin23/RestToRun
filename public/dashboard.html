@@ -30,6 +30,16 @@
       border-radius: 12px;
       padding: 30px;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+      overflow: visible; /* Ensure chart can extend if needed */
+    }
+    .chart-container.single-day {
+      max-width: 600px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .chart-container.single-day canvas {
+      max-width: 500px;
     }
     canvas {
       width: 100% !important;
@@ -219,10 +229,10 @@
       <input type="date" id="endDate">
     </div>
     <div class="date-presets">
+      <button data-preset="today">Today</button>
       <button data-preset="last7">Last 7 Days</button>
       <button data-preset="last30">Last 30 Days</button>
       <button data-preset="thisMonth">This Month</button>
-      <button data-preset="december">December</button>
       <button data-preset="lastMonth">Last Month</button>
     </div>
     <button id="updateDates">Update Range</button>

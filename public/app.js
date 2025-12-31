@@ -55,14 +55,13 @@ function initCharts() {
   isInitializing = true;
   chartsInitialized = true;
   
-  // Set default to last 7 days if dates are not set
+  // Set default to today if dates are not set
   const startInput = document.getElementById('startDate');
   const endInput = document.getElementById('endDate');
   if (startInput && endInput && !startInput.value) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - 6); // 7 days ago (including today)
+    // Get today's date in local timezone explicitly
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     const formatDate = (date) => {
       const year = date.getFullYear();
@@ -71,14 +70,14 @@ function initCharts() {
       return `${year}-${month}-${day}`;
     };
     
-    startInput.value = formatDate(startDate);
+    startInput.value = formatDate(today);
     endInput.value = formatDate(today);
     
-    // Mark "Last 7 Days" button as active
-    const last7Button = document.querySelector('[data-preset="last7"]');
-    if (last7Button) {
+    // Mark "Today" button as active
+    const todayButton = document.querySelector('[data-preset="today"]');
+    if (todayButton) {
       document.querySelectorAll('[data-preset]').forEach(btn => btn.classList.remove('active'));
-      last7Button.classList.add('active');
+      todayButton.classList.add('active');
     }
   }
   
@@ -173,7 +172,7 @@ function parseHours(str) {
   }
 }
 
-function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepScores, readinessScores, pace, averageHeartrate, maxHeartrate, cadence) {
+function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepScores, readinessScores, pace, averageHeartrate, maxHeartrate, cadence, isSingleDay = false) {
   const statsContainer = document.getElementById('statsContainer');
   if (!statsContainer) return;
   
@@ -293,107 +292,133 @@ function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepSco
     return '#e74c3c'; // Red for poor
   };
   
-  // Create stats cards
-  statsContainer.innerHTML = `
-    <div class="stat-card sleep">
-      <div class="stat-label">Average Sleep</div>
-      <div class="stat-value">${formatHours(avgSleepHours)}</div>
-      <div class="stat-unit">per night</div>
-    </div>
-    <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgSleepScore)};">
-      <div class="stat-label">Avg Sleep Score</div>
-      <div class="stat-value" style="color: ${getScoreColor(avgSleepScore)};">${avgSleepScore}</div>
-      <div class="stat-unit">${validSleepScores.length} days ${sleepCrowns > 0 ? `👑 ${sleepCrowns}` : ''}</div>
-    </div>
-    <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgReadinessScore)};">
-      <div class="stat-label">Avg Readiness</div>
-      <div class="stat-value" style="color: ${getScoreColor(avgReadinessScore)};">${avgReadinessScore}</div>
-      <div class="stat-unit">${validReadinessScores.length} days ${readinessCrowns > 0 ? `👑 ${readinessCrowns}` : ''}</div>
-    </div>
-    <div class="stat-card" style="border-left: 4px solid #f39c12;">
-      <div class="stat-label">Total Crowns</div>
-      <div class="stat-value" style="color: #f39c12; font-size: 28px;">👑 ${totalCrowns}</div>
-      <div class="stat-unit">${sleepCrowns} sleep + ${readinessCrowns} readiness</div>
-    </div>
-    <div class="stat-card total">
-      <div class="stat-label">Total Sleep</div>
-      <div class="stat-value">${formatHours(totalSleepHours)}</div>
-      <div class="stat-unit">${daysWithSleep} nights</div>
-    </div>
-    <div class="stat-card distance">
-      <div class="stat-label">Total Distance</div>
-      <div class="stat-value">${totalDistance.toFixed(1)}</div>
-      <div class="stat-unit">miles</div>
-    </div>
-    <div class="stat-card average">
-      <div class="stat-label">Avg Distance</div>
-      <div class="stat-value">${avgDistance.toFixed(1)}</div>
-      <div class="stat-unit">miles per run</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Runs</div>
-      <div class="stat-value">${daysWithRuns}</div>
-      <div class="stat-unit">total runs</div>
-    </div>
-    <div class="stat-card" style="border-left: 4px solid #3498db;">
-      <div class="stat-label">Avg Pace</div>
-      <div class="stat-value" style="color: #3498db;">${avgPace !== null ? formatPace(avgPace) : 'N/A'}</div>
-      <div class="stat-unit">min/mile</div>
-    </div>
-    <div class="stat-card" style="border-left: 4px solid #e74c3c;">
-      <div class="stat-label">Avg Heart Rate</div>
-      <div class="stat-value" style="color: #e74c3c;">${avgHR !== null ? Math.round(avgHR) : 'N/A'}</div>
-      <div class="stat-unit">bpm</div>
-    </div>
-    <div class="stat-card" style="border-left: 4px solid #c0392b;">
-      <div class="stat-label">Max Heart Rate</div>
-      <div class="stat-value" style="color: #c0392b;">${maxHR !== null ? maxHR : 'N/A'}</div>
-      <div class="stat-unit">bpm</div>
-    </div>
-    <div class="stat-card" style="border-left: 4px solid #9b59b6;">
-      <div class="stat-label">Avg Cadence</div>
-      <div class="stat-value" style="color: #9b59b6;">${avgCadence !== null ? Math.round(avgCadence) : 'N/A'}</div>
-      <div class="stat-unit">spm</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Sleep Breakdown</div>
-      <div class="stat-value" style="font-size: 24px; margin-bottom: 8px;">
-        ${daysWithSleep > 0 ? `${formatHours(totalLight / daysWithSleep)} / ${formatHours(totalREM / daysWithSleep)} / ${formatHours(totalDeep / daysWithSleep)}` : '0h / 0h / 0h'}
+  // Create stats cards - simplified for single day, full for multiple days
+  if (isSingleDay) {
+    // Simplified view for single day: Sleep Total, Total Distance, Runs, Pace
+    const todaySleep = totalSleepHours > 0 ? formatHours(totalSleepHours) : 'N/A';
+    const todayDistance = totalDistance > 0 ? totalDistance.toFixed(1) : '0.0';
+    const todayRuns = daysWithRuns;
+    const todayPace = avgPace !== null ? formatPace(avgPace) : 'N/A';
+    
+    statsContainer.innerHTML = `
+      <div class="stat-card distance">
+        <div class="stat-label">Total Distance</div>
+        <div class="stat-value" style="font-size: 36px;">${todayDistance}</div>
+        <div class="stat-unit">miles</div>
       </div>
-      <div class="stat-unit">Light / REM / Deep (avg)</div>
-    </div>
-  `;
+      <div class="stat-card">
+        <div class="stat-label">Runs</div>
+        <div class="stat-value" style="font-size: 36px;">${todayRuns}</div>
+        <div class="stat-unit">${todayRuns === 1 ? 'run' : 'runs'}</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid #3498db;">
+        <div class="stat-label">Pace</div>
+        <div class="stat-value" style="color: #3498db; font-size: 36px;">${todayPace}</div>
+        <div class="stat-unit">min/mile</div>
+      </div>
+    `;
+  } else {
+    // Full comprehensive view for multiple days
+    statsContainer.innerHTML = `
+      <div class="stat-card sleep">
+        <div class="stat-label">Average Sleep</div>
+        <div class="stat-value">${formatHours(avgSleepHours)}</div>
+        <div class="stat-unit">per night</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgSleepScore)};">
+        <div class="stat-label">Avg Sleep Score</div>
+        <div class="stat-value" style="color: ${getScoreColor(avgSleepScore)};">${avgSleepScore}</div>
+        <div class="stat-unit">${validSleepScores.length} days ${sleepCrowns > 0 ? `👑 ${sleepCrowns}` : ''}</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgReadinessScore)};">
+        <div class="stat-label">Avg Readiness</div>
+        <div class="stat-value" style="color: ${getScoreColor(avgReadinessScore)};">${avgReadinessScore}</div>
+        <div class="stat-unit">${validReadinessScores.length} days ${readinessCrowns > 0 ? `👑 ${readinessCrowns}` : ''}</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid #f39c12;">
+        <div class="stat-label">Total Crowns</div>
+        <div class="stat-value" style="color: #f39c12; font-size: 28px;">👑 ${totalCrowns}</div>
+        <div class="stat-unit">${sleepCrowns} sleep + ${readinessCrowns} readiness</div>
+      </div>
+      <div class="stat-card distance">
+        <div class="stat-label">Total Distance</div>
+        <div class="stat-value">${totalDistance.toFixed(1)}</div>
+        <div class="stat-unit">miles</div>
+      </div>
+      <div class="stat-card average">
+        <div class="stat-label">Avg Distance</div>
+        <div class="stat-value">${avgDistance.toFixed(1)}</div>
+        <div class="stat-unit">miles per run</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Runs</div>
+        <div class="stat-value">${daysWithRuns}</div>
+        <div class="stat-unit">total runs</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid #3498db;">
+        <div class="stat-label">Avg Pace</div>
+        <div class="stat-value" style="color: #3498db;">${avgPace !== null ? formatPace(avgPace) : 'N/A'}</div>
+        <div class="stat-unit">min/mile</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid #e74c3c;">
+        <div class="stat-label">Avg Heart Rate</div>
+        <div class="stat-value" style="color: #e74c3c;">${avgHR !== null ? Math.round(avgHR) : 'N/A'}</div>
+        <div class="stat-unit">bpm</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid #c0392b;">
+        <div class="stat-label">Max Heart Rate</div>
+        <div class="stat-value" style="color: #c0392b;">${maxHR !== null ? maxHR : 'N/A'}</div>
+        <div class="stat-unit">bpm</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid #9b59b6;">
+        <div class="stat-label">Avg Cadence</div>
+        <div class="stat-value" style="color: #9b59b6;">${avgCadence !== null ? Math.round(avgCadence) : 'N/A'}</div>
+        <div class="stat-unit">spm</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Sleep Breakdown</div>
+        <div class="stat-value" style="font-size: 24px; margin-bottom: 8px;">
+          ${daysWithSleep > 0 ? `${formatHours(totalLight / daysWithSleep)} / ${formatHours(totalREM / daysWithSleep)} / ${formatHours(totalDeep / daysWithSleep)}` : '0h / 0h / 0h'}
+        </div>
+        <div class="stat-unit">Light / REM / Deep (avg)</div>
+      </div>
+    `;
+  }
 }
 
 function formatDateLabel(dateString, dateRangeDays, showMonth = true) {
   if (!dateString) return '';
   
-  const date = new Date(dateString);
+  // Parse date string as local date to avoid timezone issues
+  // dateString is in format "YYYY-MM-DD"
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day); // month is 0-indexed
+  
   // Check if date is valid
   if (isNaN(date.getTime())) {
     console.warn('Invalid date:', dateString);
     return dateString;
   }
   
-  const month = date.toLocaleString('default', { month: 'short' });
-  const day = date.getDate();
+  const monthName = date.toLocaleString('default', { month: 'short' });
+  const dayNum = date.getDate();
   
   // For very long ranges (>90 days), show month and day
   if (dateRangeDays > 90) {
-    return `${month} ${day}`;
+    return `${monthName} ${dayNum}`;
   }
   // For medium-long ranges (60-90 days), show month and day
   else if (dateRangeDays > 60) {
-    return `${month} ${day}`;
+    return `${monthName} ${dayNum}`;
   }
   // For medium ranges (30-60 days), show month and day
   else if (dateRangeDays > 30) {
-    return `${month} ${day}`;
+    return `${monthName} ${dayNum}`;
   }
   // For short ranges (≤30 days), show day of week and day
   else {
     const dayOfWeek = date.toLocaleString('default', { weekday: 'short' });
-    return `${dayOfWeek} ${day}`;
+    return `${dayOfWeek} ${dayNum}`;
   }
 }
 
@@ -437,11 +462,10 @@ async function loadDataAndCreateCharts(startDate, endDate) {
         startDate = startInput.value;
         endDate = endInput.value;
       } else {
-        // Default to last 7 days if inputs are empty
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const start = new Date(today);
-        start.setDate(today.getDate() - 6); // 7 days ago (including today)
+        // Default to today if inputs are empty
+        // Get today's date in local timezone explicitly
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         
         const formatDate = (date) => {
           const year = date.getFullYear();
@@ -450,7 +474,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           return `${year}-${month}-${day}`;
         };
         
-        startDate = formatDate(start);
+        startDate = formatDate(today);
         endDate = formatDate(today);
         
         // Set the input values
@@ -487,6 +511,9 @@ async function loadDataAndCreateCharts(startDate, endDate) {
     const lastDate = new Date(data[data.length - 1]?.date || endDate);
     const dateRangeDays = Math.ceil((lastDate - firstDate) / (1000 * 60 * 60 * 24)) + 1;
     
+    // Check if this is a single day view
+    const isSingleDay = data.length === 1;
+    
     // Format labels intelligently based on date range
     const labels = data.map(d => formatDateLabel(d.date, dateRangeDays));
     const rawDates = data.map(d => d.date); // Keep raw dates for tooltips
@@ -522,7 +549,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
     }
     
     // Calculate and display statistics
-    updateStatistics(data, totalSleep, light, rem, deep, distance, sleepScores, readinessScores, pace, averageHeartrate, maxHeartrate, cadence);
+    updateStatistics(data, totalSleep, light, rem, deep, distance, sleepScores, readinessScores, pace, averageHeartrate, maxHeartrate, cadence, isSingleDay);
     
     // Debug: log data to verify it's correct
     console.log("Chart data summary:", {
@@ -560,6 +587,14 @@ async function loadDataAndCreateCharts(startDate, endDate) {
       const sleepChartEl = document.getElementById("sleepChart");
       if (!sleepChartEl) {
         throw new Error("Sleep chart canvas element not found");
+      }
+      
+      // Add single-day class to container for centering
+      const sleepChartContainer = sleepChartEl.closest('.chart-container');
+      if (isSingleDay) {
+        sleepChartContainer?.classList.add('single-day');
+      } else {
+        sleepChartContainer?.classList.remove('single-day');
       }
 
       // Validate data before creating chart
@@ -601,9 +636,11 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           stack: "sleep", 
           backgroundColor: "rgba(116, 185, 255, 0.85)",
           borderColor: "rgba(116, 185, 255, 1)",
-          borderWidth: 0,
-          borderRadius: 6,
-          borderSkipped: false
+          borderWidth: isSingleDay ? 2 : 0,
+          borderRadius: isSingleDay ? 12 : 6,
+          borderSkipped: false,
+          barPercentage: isSingleDay ? 0.6 : 0.8,
+          categoryPercentage: isSingleDay ? 0.6 : 0.8
         },
         { 
           label: "REM Sleep", 
@@ -611,9 +648,11 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           stack: "sleep", 
           backgroundColor: "rgba(255, 107, 129, 0.85)",
           borderColor: "rgba(255, 107, 129, 1)",
-          borderWidth: 0,
-          borderRadius: 6,
-          borderSkipped: false
+          borderWidth: isSingleDay ? 2 : 0,
+          borderRadius: isSingleDay ? 12 : 6,
+          borderSkipped: false,
+          barPercentage: isSingleDay ? 0.6 : 0.8,
+          categoryPercentage: isSingleDay ? 0.6 : 0.8
         },
         { 
           label: "Deep Sleep", 
@@ -621,15 +660,26 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           stack: "sleep", 
           backgroundColor: "rgba(72, 219, 251, 0.85)",
           borderColor: "rgba(72, 219, 251, 1)",
-          borderWidth: 0,
-          borderRadius: 6,
-          borderSkipped: false
+          borderWidth: isSingleDay ? 2 : 0,
+          borderRadius: isSingleDay ? 12 : 6,
+          borderSkipped: false,
+          barPercentage: isSingleDay ? 0.6 : 0.8,
+          categoryPercentage: isSingleDay ? 0.6 : 0.8
         }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: {
+        padding: isSingleDay ? {
+          left: 50,
+          right: 50
+        } : {
+          left: 0,
+          right: 20  // Add padding on right to prevent last bar from being truncated
+        }
+      },
       animation: {
         duration: 0
       },
@@ -663,6 +713,30 @@ async function loadDataAndCreateCharts(startDate, endDate) {
             color: '#34495e'
           }
         },
+        // Custom plugin to draw blue crown for sleep score >= 85
+        afterDraw: (chart) => {
+          const ctx = chart.ctx;
+          const meta = chart.getDatasetMeta(0);
+          
+          // Draw blue crowns for sleep scores >= 85
+          sleepScores.forEach((score, index) => {
+            if (score !== null && score >= 85) {
+              const bar = meta.data[index];
+              if (bar) {
+                const x = bar.x;
+                const y = bar.y - 20; // Position above the bar
+                
+                ctx.save();
+                ctx.font = 'bold 20px Arial';
+                ctx.fillStyle = '#3498db'; // Blue for sleep crown
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('👑', x, y);
+                ctx.restore();
+              }
+            }
+          });
+        },
         tooltip: {
           backgroundColor: 'rgba(0, 0, 0, 0.85)',
           padding: 14,
@@ -679,7 +753,10 @@ async function loadDataAndCreateCharts(startDate, endDate) {
             title: function(context) {
               const index = context[0].dataIndex;
               const rawDate = rawDates[index];
-              const date = new Date(rawDate);
+              // Parse date string as local date to avoid timezone issues
+              // rawDate is in format "YYYY-MM-DD"
+              const [year, month, day] = rawDate.split('-').map(Number);
+              const date = new Date(year, month - 1, day); // month is 0-indexed
               return date.toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 year: 'numeric', 
@@ -695,35 +772,105 @@ async function loadDataAndCreateCharts(startDate, endDate) {
                 return `${context.dataset.label}: ${hours}h ${minutes}m`;
               }
               return `${context.dataset.label}: ${hours}h`;
+            },
+            footer: function(tooltipItems) {
+              // Calculate total sleep by summing all datasets at this index
+              const dataIndex = tooltipItems[0].dataIndex;
+              let totalHours = 0;
+              
+              // Sum all values from all datasets at this index
+              tooltipItems.forEach(item => {
+                if (item.parsed && item.parsed.y !== null) {
+                  totalHours += item.parsed.y;
+                }
+              });
+              
+              if (totalHours > 0) {
+                const hours = Math.floor(totalHours);
+                const minutes = Math.round((totalHours - hours) * 60);
+                if (minutes > 0) {
+                  return `Total Sleep: ${hours}h ${minutes}m`;
+                }
+                return `Total Sleep: ${hours}h`;
+              }
+              return '';
             }
           }
+        }
+      },
+      plugins: {
+        // Ensure all bars get equal width by adjusting scale after layout
+        afterLayout: (chart) => {
+          if (!isSingleDay) {
+            const xScale = chart.scales.x;
+            // Force the scale to include proper range for all categories
+            const numCategories = labels.length;
+            xScale.min = -0.5;
+            xScale.max = numCategories - 0.5;
+            // Update the scale to recalculate
+            xScale.update('none');
+          }
+        },
+        // Custom plugin to draw crown indicators
+        afterDraw: (chart) => {
+          const ctx = chart.ctx;
+          const meta = chart.getDatasetMeta(0);
+          const xScale = chart.scales.x;
+          const yScale = chart.scales.y;
+          
+          // Draw crowns for sleep scores >= 85
+          sleepScores.forEach((score, index) => {
+            if (score !== null && score >= 85) {
+              const bar = meta.data[index];
+              if (bar) {
+                const x = bar.x;
+                const y = bar.y - 15; // Position above the bar
+                
+                ctx.save();
+                ctx.font = 'bold 20px Arial';
+                ctx.fillStyle = '#3498db'; // Blue for sleep crown
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('👑', x, y);
+                ctx.restore();
+              }
+            }
+          });
         }
       },
       scales: {
         x: { 
           stacked: true,
           grid: {
-            display: true,
+            display: !isSingleDay, // Hide grid for single day
             color: 'rgba(0, 0, 0, 0.03)',
             drawBorder: false
           },
           ticks: {
             font: {
-              size: dateRangeDays > 90 ? 10 : 11,
-              weight: '500'
+              size: isSingleDay ? 16 : (dateRangeDays > 90 ? 10 : 11),
+              weight: isSingleDay ? '600' : '500'
             },
-            color: '#7f8c8d',
+            color: isSingleDay ? '#2c3e50' : '#7f8c8d',
             maxRotation: dateRangeDays > 90 ? 90 : 45,
             minRotation: dateRangeDays > 90 ? 45 : 0,
             maxTicksLimit: maxTicks,
             autoSkip: true,
             autoSkipPadding: dateRangeDays > 90 ? 5 : 8,
-            padding: 10
+            padding: isSingleDay ? 20 : 10
           },
           border: {
             display: false
           },
-          offset: false
+          offset: true, // Enable offset to add padding on both sides for all bars
+          // For single day, center the bar; for multi-day, ensure all bars are same width
+          ...(isSingleDay ? { 
+            min: -0.5, 
+            max: 0.5 
+          } : {
+            // Don't set min/max - let Chart.js calculate with offset: true
+            // This ensures all categories get equal space
+          })
         },
         y: {
           stacked: true,
@@ -763,9 +910,12 @@ async function loadDataAndCreateCharts(startDate, endDate) {
         }
       },
       layout: {
-        padding: {
+        padding: isSingleDay ? {
+          left: 50,
+          right: 50
+        } : {
           left: 10,
-          right: 10,
+          right: 30,  // Padding on right to ensure last bar has space
           top: 5,
           bottom: 5
         }
@@ -852,6 +1002,14 @@ async function loadDataAndCreateCharts(startDate, endDate) {
       if (!distanceChartEl) {
         throw new Error("Distance chart canvas element not found");
       }
+      
+      // Add single-day class to container for centering
+      const distanceChartContainer = distanceChartEl.closest('.chart-container');
+      if (isSingleDay) {
+        distanceChartContainer?.classList.add('single-day');
+      } else {
+        distanceChartContainer?.classList.remove('single-day');
+      }
 
       // Validate data before creating chart
       if (!labels || labels.length === 0) {
@@ -919,71 +1077,71 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           label: "Distance (miles)",
           data: distance,
           tension: 0.4,
-          borderWidth: 3,
-          pointRadius: 5,
-          pointHoverRadius: 7,
+          borderWidth: isSingleDay ? 4 : 3,
+          pointRadius: isSingleDay ? 8 : 5,
+          pointHoverRadius: isSingleDay ? 10 : 7,
           pointBackgroundColor: "#fff",
           pointBorderColor: "rgba(52, 152, 219, 1)",
-          pointBorderWidth: 2,
+          pointBorderWidth: isSingleDay ? 3 : 2,
           borderColor: "rgba(52, 152, 219, 1)",
           backgroundColor: "rgba(52, 152, 219, 0.1)",
           fill: true,
           spanGaps: false,
-          showLine: true,
+          showLine: !isSingleDay, // Hide line for single point
           yAxisID: 'y'
         },
         {
           label: "Pace (min/mile)",
           data: pace,
           tension: 0.4,
-          borderWidth: 2,
+          borderWidth: isSingleDay ? 3 : 2,
           borderDash: [3, 3],
-          pointRadius: 3,
-          pointHoverRadius: 5,
+          pointRadius: isSingleDay ? 6 : 3,
+          pointHoverRadius: isSingleDay ? 8 : 5,
           pointBackgroundColor: "rgba(52, 152, 219, 0.7)",
           pointBorderColor: "rgba(52, 152, 219, 0.9)",
-          pointBorderWidth: 1.5,
+          pointBorderWidth: isSingleDay ? 2 : 1.5,
           borderColor: "rgba(52, 152, 219, 0.7)",
           backgroundColor: "rgba(52, 152, 219, 0.05)",
           fill: false,
           spanGaps: false,
-          showLine: true,
+          showLine: !isSingleDay,
           yAxisID: 'y2'
         },
         {
           label: "Heart Rate (bpm)",
           data: averageHeartrate,
           tension: 0.4,
-          borderWidth: 1.5,
+          borderWidth: isSingleDay ? 2.5 : 1.5,
           borderDash: [5, 5],
-          pointRadius: 2,
-          pointHoverRadius: 4,
+          pointRadius: isSingleDay ? 5 : 2,
+          pointHoverRadius: isSingleDay ? 7 : 4,
           pointBackgroundColor: "rgba(231, 76, 60, 0.6)",
           pointBorderColor: "rgba(231, 76, 60, 0.8)",
-          pointBorderWidth: 1,
+          pointBorderWidth: isSingleDay ? 2 : 1,
           borderColor: "rgba(231, 76, 60, 0.6)",
           backgroundColor: "rgba(231, 76, 60, 0.05)",
           fill: false,
           spanGaps: false,
-          showLine: true,
+          showLine: !isSingleDay,
           yAxisID: 'y1'
         },
         {
           label: "Cadence (spm)",
           data: cadence,
           tension: 0.4,
-          borderWidth: 1.5,
+          borderWidth: isSingleDay ? 2.5 : 1.5,
           borderDash: [5, 5],
-          pointRadius: 2,
-          pointHoverRadius: 4,
+          pointRadius: isSingleDay ? 5 : 2,
+          pointHoverRadius: isSingleDay ? 7 : 4,
           pointBackgroundColor: "rgba(155, 89, 182, 0.6)",
           pointBorderColor: "rgba(155, 89, 182, 0.8)",
-          pointBorderWidth: 1,
+          pointBorderWidth: isSingleDay ? 2 : 1,
           borderColor: "rgba(155, 89, 182, 0.6)",
           backgroundColor: "rgba(155, 89, 182, 0.05)",
           fill: false,
           spanGaps: false,
-          showLine: true,
+          showLine: !isSingleDay,
           yAxisID: 'y1'
         }
       ]
@@ -991,6 +1149,15 @@ async function loadDataAndCreateCharts(startDate, endDate) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: {
+        padding: isSingleDay ? {
+          left: 50,
+          right: 50
+        } : {
+          left: 0,
+          right: 20  // Add padding on right to prevent last point from being truncated
+        }
+      },
       animation: {
         duration: 0
       },
@@ -1041,7 +1208,10 @@ async function loadDataAndCreateCharts(startDate, endDate) {
             title: function(context) {
               const index = context[0].dataIndex;
               const rawDate = rawDates[index];
-              const date = new Date(rawDate);
+              // Parse date string as local date to avoid timezone issues
+              // rawDate is in format "YYYY-MM-DD"
+              const [year, month, day] = rawDate.split('-').map(Number);
+              const date = new Date(year, month - 1, day); // month is 0-indexed
               return date.toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 year: 'numeric', 
@@ -1067,32 +1237,82 @@ async function loadDataAndCreateCharts(startDate, endDate) {
               return `${datasetLabel}: ${value}`;
             }
           }
+        },
+        // Custom plugin to draw crown indicators (blue for sleep, green for readiness)
+        afterDraw: (chart) => {
+          const ctx = chart.ctx;
+          const meta = chart.getDatasetMeta(0); // Use first dataset for positioning
+          const yScale = chart.scales.y;
+          
+          // Draw crowns for each data point
+          sleepScores.forEach((sleepScore, index) => {
+            const readinessScore = readinessScores[index];
+            const point = meta.data[index];
+            
+            if (point) {
+              const x = point.x;
+              let yOffset = 0;
+              
+              // Blue crown for sleep score >= 85
+              if (sleepScore !== null && sleepScore >= 85) {
+                const y = yScale.getPixelForValue(yScale.max) - 20 - yOffset; // Top of chart
+                ctx.save();
+                ctx.font = 'bold 18px Arial';
+                ctx.fillStyle = '#3498db'; // Blue for sleep crown
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('👑', x, y);
+                ctx.restore();
+                yOffset += 25; // Space for next crown
+              }
+              
+              // Green crown for readiness score >= 85
+              if (readinessScore !== null && readinessScore >= 85) {
+                const y = yScale.getPixelForValue(yScale.max) - 20 - yOffset; // Top of chart
+                ctx.save();
+                ctx.font = 'bold 18px Arial';
+                ctx.fillStyle = '#27ae60'; // Green for readiness crown
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('👑', x, y);
+                ctx.restore();
+              }
+            }
+          });
         }
       },
       scales: {
         x: {
           grid: {
-            display: true,
+            display: !isSingleDay,
             color: 'rgba(0, 0, 0, 0.03)',
             drawBorder: false
           },
           ticks: {
             font: {
-              size: dateRangeDays > 90 ? 10 : 11,
-              weight: '500'
+              size: isSingleDay ? 16 : (dateRangeDays > 90 ? 10 : 11),
+              weight: isSingleDay ? '600' : '500'
             },
-            color: '#7f8c8d',
+            color: isSingleDay ? '#2c3e50' : '#7f8c8d',
             maxRotation: dateRangeDays > 90 ? 90 : 45,
             minRotation: dateRangeDays > 90 ? 45 : 0,
             maxTicksLimit: maxTicks,
             autoSkip: true,
             autoSkipPadding: dateRangeDays > 90 ? 5 : 8,
-            padding: 10
+            padding: isSingleDay ? 20 : 10
           },
           border: {
             display: false
           },
-          offset: false
+          offset: false, // Keep all points evenly spaced
+          // Add space after last category to prevent truncation
+          ...(isSingleDay ? { 
+            offset: true,
+            min: -0.5, 
+            max: 0.5 
+          } : {
+            max: labels.length - 0.5  // Add half category width after last point
+          })
         },
         y: {
           type: 'linear',
@@ -1373,12 +1593,18 @@ function setupDateSelector() {
   presetButtons.forEach(button => {
     button.addEventListener('click', () => {
       const preset = button.getAttribute('data-preset');
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Get today's date in local timezone explicitly
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       
       let startDate, endDate;
       
       switch(preset) {
+        case 'today':
+          // Show only today - most recent day's data
+          startDate = new Date(today);
+          endDate = new Date(today);
+          break;
         case 'last7':
           // Last 7 days including today (today - 6 days ago through today)
           endDate = new Date(today);
@@ -1394,16 +1620,6 @@ function setupDateSelector() {
         case 'thisMonth':
           startDate = new Date(today.getFullYear(), today.getMonth(), 1);
           endDate = new Date(today);
-          break;
-        case 'december':
-          // December 2025: Dec 1 to Dec 30 (or today if we're still in December)
-          startDate = new Date(2025, 11, 1); // Month is 0-indexed, so 11 = December
-          // If today is in December 2025, use today; otherwise use Dec 30
-          if (today.getFullYear() === 2025 && today.getMonth() === 11) {
-            endDate = new Date(today);
-          } else {
-            endDate = new Date(2025, 11, 30);
-          }
           break;
         case 'lastMonth':
           const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -1430,6 +1646,8 @@ function setupDateSelector() {
       const startDateStr = formatDate(startDate);
       const endDateStr = formatDate(endDate);
       console.log(`Preset ${preset} selected: ${startDateStr} to ${endDateStr}`);
+      console.log(`Today's date object:`, today);
+      console.log(`Today's formatted date:`, formatDate(today));
       applyDateRange(startDateStr, endDateStr);
     });
   });
