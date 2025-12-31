@@ -328,12 +328,12 @@ function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepSco
       <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgSleepScore)};">
         <div class="stat-label">Avg Sleep Score</div>
         <div class="stat-value" style="color: ${getScoreColor(avgSleepScore)};">${avgSleepScore}</div>
-        <div class="stat-unit">${validSleepScores.length} days ${sleepCrowns > 0 ? `👑 ${sleepCrowns}` : ''}</div>
+        <div class="stat-unit">${sleepCrowns > 0 ? `👑 ${sleepCrowns}` : ''}</div>
       </div>
       <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgReadinessScore)};">
         <div class="stat-label">Avg Readiness</div>
         <div class="stat-value" style="color: ${getScoreColor(avgReadinessScore)};">${avgReadinessScore}</div>
-        <div class="stat-unit">${validReadinessScores.length} days ${readinessCrowns > 0 ? `👑 ${readinessCrowns}` : ''}</div>
+        <div class="stat-unit">${readinessCrowns > 0 ? `👑 ${readinessCrowns}` : ''}</div>
       </div>
       <div class="stat-card" style="border-left: 4px solid #f39c12;">
         <div class="stat-label">Total Crowns</div>
@@ -410,7 +410,7 @@ function formatDateLabel(dateString, dateRangeDays, showMonth = true) {
   // For medium-long ranges (60-90 days), show month and day
   else if (dateRangeDays > 60) {
     return `${monthName} ${dayNum}`;
-  }
+}
   // For medium ranges (30-60 days), show month and day
   else if (dateRangeDays > 30) {
     return `${monthName} ${dayNum}`;
@@ -522,10 +522,10 @@ async function loadDataAndCreateCharts(startDate, endDate) {
     const tickSpacing = calculateOptimalTickSpacing(data.length, dateRangeDays);
     const maxTicks = calculateMaxTicks(data.length, dateRangeDays);
 
-    const totalSleep = data.map(d => parseHours(d.sleep));
-    const light = data.map(d => parseHours(d.light));
-    const rem = data.map(d => parseHours(d.rem));
-    const deep = data.map(d => parseHours(d.deep));
+  const totalSleep = data.map(d => parseHours(d.sleep));
+  const light = data.map(d => parseHours(d.light));
+  const rem = data.map(d => parseHours(d.rem));
+  const deep = data.map(d => parseHours(d.deep));
     const distance = data.map(d => parseFloat(d.distance) || 0);
     const sleepScores = data.map(d => d.sleepScore !== null && d.sleepScore !== undefined ? parseFloat(d.sleepScore) : null);
     const readinessScores = data.map(d => d.readinessScore !== null && d.readinessScore !== undefined ? parseFloat(d.readinessScore) : null);
@@ -573,9 +573,9 @@ async function loadDataAndCreateCharts(startDate, endDate) {
       requestedEndDate: endDate
     });
 
-    /* =========================
-       SLEEP STACKED BAR CHART
-    ========================= */
+  /* =========================
+     SLEEP STACKED BAR CHART
+  ========================= */
 
     try {
       // Destroy existing chart if it exists
@@ -624,6 +624,39 @@ async function loadDataAndCreateCharts(startDate, endDate) {
         sleepChartEl.chart.destroy();
         sleepChartEl.chart = null;
       }
+
+      // Helper function to format hours to xHrxM
+      const formatHoursToHM = (decimalHours) => {
+        if (!decimalHours || isNaN(decimalHours) || decimalHours === 0) return '0h';
+        const totalMinutes = Math.round(decimalHours * 60);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return minutes > 0 ? `${hours}h${minutes}m` : `${hours}h`;
+      };
+
+      // Log Chart.js version for debugging
+      if (typeof Chart !== 'undefined' && Chart.version) {
+        console.log('Chart.js version:', Chart.version);
+      }
+
+      // Register custom tooltip formatter plugin
+      Chart.register({
+        id: 'sleepTooltipFormatter',
+        beforeTooltipUpdate: function(chart, args) {
+          // Intercept tooltip before it's displayed
+          const tooltip = chart.tooltip;
+          if (tooltip && tooltip.dataPoints) {
+            tooltip.dataPoints.forEach(point => {
+              if (point.parsed && point.parsed.y !== null && !isNaN(point.parsed.y)) {
+                const value = point.parsed.y;
+                const formatted = formatHoursToHM(value);
+                point.label = `${point.dataset.label}: ${formatted}`;
+                console.log('🔔 Plugin formatting:', point.dataset.label, value, '→', formatted);
+              }
+            });
+          }
+        }
+      });
 
       sleepChartInstance = new Chart(sleepChartEl, {
     type: "bar",
@@ -738,6 +771,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           });
         },
         tooltip: {
+          enabled: true,
           backgroundColor: 'rgba(0, 0, 0, 0.85)',
           padding: 14,
           titleFont: {
@@ -753,10 +787,8 @@ async function loadDataAndCreateCharts(startDate, endDate) {
             title: function(context) {
               const index = context[0].dataIndex;
               const rawDate = rawDates[index];
-              // Parse date string as local date to avoid timezone issues
-              // rawDate is in format "YYYY-MM-DD"
               const [year, month, day] = rawDate.split('-').map(Number);
-              const date = new Date(year, month - 1, day); // month is 0-indexed
+              const date = new Date(year, month - 1, day);
               return date.toLocaleDateString('en-US', { 
                 weekday: 'long', 
                 year: 'numeric', 
@@ -765,40 +797,54 @@ async function loadDataAndCreateCharts(startDate, endDate) {
               });
             },
             label: function(context) {
+              // Chart.js v4 - get value from parsed.y
               const value = context.parsed.y;
-              const hours = Math.floor(value);
-              const minutes = Math.round((value - hours) * 60);
-              if (minutes > 0) {
-                return `${context.dataset.label}: ${hours}h ${minutes}m`;
+              
+              // Force console log to verify callback is called
+              console.log('🔔 TOOLTIP CALLBACK FIRED!', {
+                dataset: context.dataset.label,
+                value: value,
+                parsed: context.parsed,
+                raw: context.raw
+              });
+              
+              if (value === null || value === undefined || isNaN(value) || value === 0) {
+                return `${context.dataset.label}: No data`;
               }
-              return `${context.dataset.label}: ${hours}h`;
+              
+              // Format decimal hours to xHrxM
+              const formatted = formatHoursToHM(value);
+              console.log('✅ Returning formatted:', formatted);
+              
+              // Return the formatted string - this should replace the default
+              return `${context.dataset.label}: ${formatted}`;
+            },
+            labelTextColor: function() {
+              return 'rgba(255, 255, 255, 1)';
+            },
+            labelColor: function(context) {
+              return {
+                borderColor: context.dataset.borderColor || context.dataset.backgroundColor,
+                backgroundColor: context.dataset.backgroundColor
+              };
             },
             footer: function(tooltipItems) {
-              // Calculate total sleep by summing all datasets at this index
-              const dataIndex = tooltipItems[0].dataIndex;
               let totalHours = 0;
-              
-              // Sum all values from all datasets at this index
               tooltipItems.forEach(item => {
-                if (item.parsed && item.parsed.y !== null) {
-                  totalHours += item.parsed.y;
+                const value = item.parsed?.y;
+                if (value !== null && !isNaN(value)) {
+                  totalHours += value;
                 }
               });
               
               if (totalHours > 0) {
-                const hours = Math.floor(totalHours);
-                const minutes = Math.round((totalHours - hours) * 60);
-                if (minutes > 0) {
-                  return `Total Sleep: ${hours}h ${minutes}m`;
-                }
-                return `Total Sleep: ${hours}h`;
+                const formatted = formatHoursToHM(totalHours);
+                return `Total Sleep: ${formatted}`;
               }
               return '';
             }
           }
-        }
-      },
-      plugins: {
+        },
         // Ensure all bars get equal width by adjusting scale after layout
         afterLayout: (chart) => {
           if (!isSingleDay) {
@@ -810,32 +856,6 @@ async function loadDataAndCreateCharts(startDate, endDate) {
             // Update the scale to recalculate
             xScale.update('none');
           }
-        },
-        // Custom plugin to draw crown indicators
-        afterDraw: (chart) => {
-          const ctx = chart.ctx;
-          const meta = chart.getDatasetMeta(0);
-          const xScale = chart.scales.x;
-          const yScale = chart.scales.y;
-          
-          // Draw crowns for sleep scores >= 85
-          sleepScores.forEach((score, index) => {
-            if (score !== null && score >= 85) {
-              const bar = meta.data[index];
-              if (bar) {
-                const x = bar.x;
-                const y = bar.y - 15; // Position above the bar
-                
-                ctx.save();
-                ctx.font = 'bold 20px Arial';
-                ctx.fillStyle = '#3498db'; // Blue for sleep crown
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('👑', x, y);
-                ctx.restore();
-              }
-            }
-          });
         }
       },
       scales: {
@@ -921,7 +941,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
         }
       }
     }
-      });
+  });
       console.log("✅ Sleep chart created successfully", sleepChartInstance);
       
       // Store reference on canvas element
@@ -987,9 +1007,9 @@ async function loadDataAndCreateCharts(startDate, endDate) {
       document.body.appendChild(errorMsg);
     }
 
-    /* =========================
-       DISTANCE LINE CHART
-    ========================= */
+  /* =========================
+     DISTANCE LINE CHART
+  ========================= */
 
     try {
       // Destroy existing chart if it exists
@@ -1409,7 +1429,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
             padding: {
               bottom: 10,
               top: 5
-            }
+        }
           },
           ticks: {
             font: {
@@ -1649,8 +1669,8 @@ function setupDateSelector() {
       console.log(`Today's date object:`, today);
       console.log(`Today's formatted date:`, formatDate(today));
       applyDateRange(startDateStr, endDateStr);
-    });
   });
+});
 
   updateButton.addEventListener('click', () => {
     // Remove active class from all preset buttons when manually updating
