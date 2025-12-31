@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/apiServer.js",
-    "dev": "node src/apiServer.js",
+    "start": "node src/fitnessApiServer.js",
+    "dev": "node src/fitnessApiServer.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "type": "module",

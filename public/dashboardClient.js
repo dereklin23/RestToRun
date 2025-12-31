@@ -112,7 +112,7 @@ async function loadData(startDate, endDate) {
     
     return data;
   } catch (error) {
-    console.error("❌ Error loading data:", error);
+    console.error("[ERROR] Error loading data:", error);
     return [];
   }
 }
@@ -651,12 +651,40 @@ async function loadDataAndCreateCharts(startDate, endDate) {
                 const value = point.parsed.y;
                 const formatted = formatHoursToHM(value);
                 point.label = `${point.dataset.label}: ${formatted}`;
-                console.log('🔔 Plugin formatting:', point.dataset.label, value, '→', formatted);
+                console.log('[TOOLTIP] Plugin formatting:', point.dataset.label, value, '→', formatted);
               }
             });
           }
         }
       });
+
+      // Plugin to draw crowns on sleep chart
+      const sleepCrownPlugin = {
+        id: 'sleepCrowns',
+        afterDraw: (chart) => {
+          const ctx = chart.ctx;
+          const meta = chart.getDatasetMeta(0);
+          
+          // Draw blue crowns for sleep scores >= 85
+          sleepScores.forEach((score, index) => {
+            if (score !== null && score >= 85) {
+              const bar = meta.data[index];
+              if (bar) {
+                const x = bar.x;
+                const y = bar.y - 25; // Position above the bar
+                
+                ctx.save();
+                ctx.font = 'bold 22px Arial';
+                ctx.fillStyle = '#3498db'; // Blue for sleep crown
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('👑', x, y);
+                ctx.restore();
+              }
+            }
+          });
+        }
+      };
 
       sleepChartInstance = new Chart(sleepChartEl, {
     type: "bar",
@@ -746,30 +774,6 @@ async function loadDataAndCreateCharts(startDate, endDate) {
             color: '#34495e'
           }
         },
-        // Custom plugin to draw blue crown for sleep score >= 85
-        afterDraw: (chart) => {
-          const ctx = chart.ctx;
-          const meta = chart.getDatasetMeta(0);
-          
-          // Draw blue crowns for sleep scores >= 85
-          sleepScores.forEach((score, index) => {
-            if (score !== null && score >= 85) {
-              const bar = meta.data[index];
-              if (bar) {
-                const x = bar.x;
-                const y = bar.y - 20; // Position above the bar
-                
-                ctx.save();
-                ctx.font = 'bold 20px Arial';
-                ctx.fillStyle = '#3498db'; // Blue for sleep crown
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('👑', x, y);
-                ctx.restore();
-              }
-            }
-          });
-        },
         tooltip: {
           enabled: true,
           backgroundColor: 'rgba(0, 0, 0, 0.85)',
@@ -801,7 +805,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
               const value = context.parsed.y;
               
               // Force console log to verify callback is called
-              console.log('🔔 TOOLTIP CALLBACK FIRED!', {
+              console.log('[TOOLTIP] TOOLTIP CALLBACK FIRED!', {
                 dataset: context.dataset.label,
                 value: value,
                 parsed: context.parsed,
@@ -814,7 +818,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
               
               // Format decimal hours to xHrxM
               const formatted = formatHoursToHM(value);
-              console.log('✅ Returning formatted:', formatted);
+              console.log('[SUCCESS] Returning formatted:', formatted);
               
               // Return the formatted string - this should replace the default
               return `${context.dataset.label}: ${formatted}`;
@@ -940,9 +944,10 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           bottom: 5
         }
       }
-    }
+    },
+    plugins: [sleepCrownPlugin] // Register the crown plugin
   });
-      console.log("✅ Sleep chart created successfully", sleepChartInstance);
+      console.log("[SUCCESS] Sleep chart created successfully", sleepChartInstance);
       
       // Store reference on canvas element
       sleepChartEl.chart = sleepChartInstance;
@@ -954,13 +959,13 @@ async function loadDataAndCreateCharts(startDate, endDate) {
         const canvas = document.getElementById("sleepChart");
         
         if (!canvas) {
-          console.error(`❌ [${checkCount}s] Sleep chart canvas element removed from DOM!`);
+          console.error(`[ERROR] [${checkCount}s] Sleep chart canvas element removed from DOM!`);
           clearInterval(monitorInterval);
           return;
         }
         
         if (!canvas.parentElement) {
-          console.error(`❌ [${checkCount}s] Sleep chart canvas has no parent!`);
+          console.error(`[ERROR] [${checkCount}s] Sleep chart canvas has no parent!`);
           clearInterval(monitorInterval);
           return;
         }
@@ -969,29 +974,29 @@ async function loadDataAndCreateCharts(startDate, endDate) {
         const computedStyle = window.getComputedStyle(canvas);
         
         if (rect.width === 0 || rect.height === 0) {
-          console.error(`❌ [${checkCount}s] Sleep chart canvas has zero dimensions!`, rect);
+          console.error(`[ERROR] [${checkCount}s] Sleep chart canvas has zero dimensions!`, rect);
         }
         
         if (computedStyle.display === 'none') {
-          console.error(`❌ [${checkCount}s] Sleep chart canvas is hidden!`, computedStyle);
+          console.error(`[ERROR] [${checkCount}s] Sleep chart canvas is hidden!`, computedStyle);
         }
         
         if (computedStyle.visibility === 'hidden') {
-          console.error(`❌ [${checkCount}s] Sleep chart canvas visibility is hidden!`, computedStyle);
+          console.error(`[ERROR] [${checkCount}s] Sleep chart canvas visibility is hidden!`, computedStyle);
         }
         
         if (computedStyle.opacity === '0') {
-          console.error(`❌ [${checkCount}s] Sleep chart canvas opacity is 0!`, computedStyle);
+          console.error(`[ERROR] [${checkCount}s] Sleep chart canvas opacity is 0!`, computedStyle);
         }
         
         if (sleepChartInstance && sleepChartInstance.destroyed) {
-          console.error(`❌ [${checkCount}s] Sleep chart instance was destroyed!`);
+          console.error(`[ERROR] [${checkCount}s] Sleep chart instance was destroyed!`);
           clearInterval(monitorInterval);
           return;
         }
         
         if (checkCount <= 5) {
-          console.log(`✅ [${checkCount}s] Sleep chart still active - width: ${rect.width}, height: ${rect.height}, display: ${computedStyle.display}`);
+          console.log(`[SUCCESS] [${checkCount}s] Sleep chart still active - width: ${rect.width}, height: ${rect.height}, display: ${computedStyle.display}`);
         }
         
         // Stop monitoring after 10 seconds
@@ -1000,7 +1005,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
         }
       }, 1000);
     } catch (error) {
-      console.error("❌ Error creating sleep chart:", error);
+      console.error("[ERROR] Error creating sleep chart:", error);
       const errorMsg = document.createElement("p");
       errorMsg.style.cssText = "color: red; text-align: center; padding: 10px;";
       errorMsg.textContent = `Sleep chart error: ${error.message}`;
@@ -1459,7 +1464,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
       }
     }
       });
-      console.log("✅ Distance chart created successfully", distanceChartInstance);
+      console.log("[SUCCESS] Distance chart created successfully", distanceChartInstance);
       
       // Store reference on canvas element
       distanceChartEl.chart = distanceChartInstance;
@@ -1471,13 +1476,13 @@ async function loadDataAndCreateCharts(startDate, endDate) {
         const canvas = document.getElementById("distanceChart");
         
         if (!canvas) {
-          console.error(`❌ [${checkCount2}s] Distance chart canvas element removed from DOM!`);
+          console.error(`[ERROR] [${checkCount2}s] Distance chart canvas element removed from DOM!`);
           clearInterval(monitorInterval2);
           return;
         }
         
         if (!canvas.parentElement) {
-          console.error(`❌ [${checkCount2}s] Distance chart canvas has no parent!`);
+          console.error(`[ERROR] [${checkCount2}s] Distance chart canvas has no parent!`);
           clearInterval(monitorInterval2);
           return;
         }
@@ -1486,29 +1491,29 @@ async function loadDataAndCreateCharts(startDate, endDate) {
         const computedStyle = window.getComputedStyle(canvas);
         
         if (rect.width === 0 || rect.height === 0) {
-          console.error(`❌ [${checkCount2}s] Distance chart canvas has zero dimensions!`, rect);
+          console.error(`[ERROR] [${checkCount2}s] Distance chart canvas has zero dimensions!`, rect);
         }
         
         if (computedStyle.display === 'none') {
-          console.error(`❌ [${checkCount2}s] Distance chart canvas is hidden!`, computedStyle);
+          console.error(`[ERROR] [${checkCount2}s] Distance chart canvas is hidden!`, computedStyle);
         }
         
         if (computedStyle.visibility === 'hidden') {
-          console.error(`❌ [${checkCount2}s] Distance chart canvas visibility is hidden!`, computedStyle);
+          console.error(`[ERROR] [${checkCount2}s] Distance chart canvas visibility is hidden!`, computedStyle);
         }
         
         if (computedStyle.opacity === '0') {
-          console.error(`❌ [${checkCount2}s] Distance chart canvas opacity is 0!`, computedStyle);
+          console.error(`[ERROR] [${checkCount2}s] Distance chart canvas opacity is 0!`, computedStyle);
         }
         
         if (distanceChartInstance && distanceChartInstance.destroyed) {
-          console.error(`❌ [${checkCount2}s] Distance chart instance was destroyed!`);
+          console.error(`[ERROR] [${checkCount2}s] Distance chart instance was destroyed!`);
           clearInterval(monitorInterval2);
           return;
         }
         
         if (checkCount2 <= 5) {
-          console.log(`✅ [${checkCount2}s] Distance chart still active - width: ${rect.width}, height: ${rect.height}, display: ${computedStyle.display}`);
+          console.log(`[SUCCESS] [${checkCount2}s] Distance chart still active - width: ${rect.width}, height: ${rect.height}, display: ${computedStyle.display}`);
         }
         
         // Stop monitoring after 10 seconds
@@ -1520,7 +1525,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
       // Mark initialization as complete
       isInitializing = false;
     } catch (error) {
-      console.error("❌ Error creating distance chart:", error);
+      console.error("[ERROR] Error creating distance chart:", error);
       const errorMsg = document.createElement("p");
       errorMsg.style.cssText = "color: red; text-align: center; padding: 10px;";
       errorMsg.textContent = `Distance chart error: ${error.message}`;

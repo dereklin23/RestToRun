@@ -1,7 +1,7 @@
 import express from "express";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import mergeData from "./services/fitnessDataService.js";
+import mergeData from "./services/stravaOuraIntegration.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -10,7 +10,7 @@ const app = express();
 const port = 3000;
 
 // Serve frontend
-app.use(express.static(join(__dirname, "..", "public"), { index: "dashboard.html" }));
+app.use(express.static(join(__dirname, "..", "public"), { index: "trainingDashboard.html" }));
 
 function formatSeconds(seconds) {
   if (!seconds || seconds <= 0) return null;
@@ -20,7 +20,7 @@ function formatSeconds(seconds) {
 }
 
 app.get("/data", async (req, res) => {
-  console.log("🔥 /data HIT");
+  console.log("[API] /data endpoint hit");
 
   try {
     // Get date range from query parameters, default to December 2025
@@ -71,6 +71,22 @@ app.get("/data", async (req, res) => {
     
     const mapped = allDatesInRange.map(date => {
         const value = filteredMap.get(date) || { runs: [], sleep: null, readiness: null };
+        
+        // Debug Dec 30 specifically
+        if (date === "2025-12-30") {
+          console.log("[DEBUG] Processing Dec 30 in API response:", {
+            hasValue: !!filteredMap.get(date),
+            hasSleep: !!value.sleep,
+            sleepTotal: value.sleep?.total,
+            sleepTotalFormatted: value.sleep?.total ? formatSeconds(value.sleep.total) : null,
+            sleepLight: value.sleep?.light,
+            sleepREM: value.sleep?.rem,
+            sleepDeep: value.sleep?.deep,
+            sleepScore: value.sleep?.score,
+            runsCount: value.runs?.length || 0
+          });
+        }
+        
         const totalMeters = value.runs && value.runs.length
           ? value.runs.reduce((sum, r) => sum + r.distance, 0)
           : 0;
@@ -168,10 +184,10 @@ app.get("/data", async (req, res) => {
           date,
           distance: distanceMiles,
 
-          sleep: value.sleep ? formatSeconds(value.sleep.total) : null,
-          light: value.sleep ? formatSeconds(value.sleep.light) : null,
-          rem: value.sleep ? formatSeconds(value.sleep.rem) : null,
-          deep: value.sleep ? formatSeconds(value.sleep.deep) : null,
+          sleep: value.sleep && value.sleep.total ? formatSeconds(value.sleep.total) : null,
+          light: value.sleep && value.sleep.light ? formatSeconds(value.sleep.light) : null,
+          rem: value.sleep && value.sleep.rem ? formatSeconds(value.sleep.rem) : null,
+          deep: value.sleep && value.sleep.deep ? formatSeconds(value.sleep.deep) : null,
 
           sleepScore: value.sleep ? value.sleep.score : null,
           readinessScore: value.readiness ? value.readiness.score : null,
@@ -185,21 +201,37 @@ app.get("/data", async (req, res) => {
 
     console.log(`Final mapped data: ${mapped.length} entries`);
     console.log(`Last entry date: ${mapped[mapped.length - 1].date}, distance: ${mapped[mapped.length - 1].distance}`);
+    
+    // Debug Dec 30 in final response
+    const dec30Entry = mapped.find(d => d.date === "2025-12-30");
+    if (dec30Entry) {
+      console.log("[DATA] Dec 30 in final API response:", {
+        date: dec30Entry.date,
+        sleep: dec30Entry.sleep,
+        light: dec30Entry.light,
+        rem: dec30Entry.rem,
+        deep: dec30Entry.deep,
+        sleepScore: dec30Entry.sleepScore,
+        distance: dec30Entry.distance
+      });
+    } else {
+      console.log("[ERROR] Dec 30 NOT FOUND in final mapped data");
+    }
 
     return res.json(mapped);
   } catch (err) {
-    console.error("❌ /data error:", err);
+    console.error("[ERROR] /data error:", err);
     return res.status(500).json({ error: "Failed to fetch data" });
   }
 });
 
-// Fallback: serve dashboard.html for all other routes (SPA support)
+// Fallback: serve trainingDashboard.html for all other routes (SPA support)
 // This must be last, after all other routes and static files
 app.use((req, res) => {
-  // Serve dashboard.html for all non-API routes (SPA routing support)
-  res.sendFile(join(__dirname, "..", "public", "dashboard.html"), (err) => {
+  // Serve trainingDashboard.html for all non-API routes (SPA routing support)
+  res.sendFile(join(__dirname, "..", "public", "trainingDashboard.html"), (err) => {
     if (err) {
-      console.error("Error sending dashboard.html:", err);
+      console.error("Error sending trainingDashboard.html:", err);
       res.status(500).send("Error loading page");
     }
   });
