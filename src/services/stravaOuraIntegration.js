@@ -1,36 +1,43 @@
 import fetch from "node-fetch";
 import "dotenv/config";
 
-const OURA_ACCESS_TOKEN = process.env.OURA_ACCESS_TOKEN;
-const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID;
-const STRAVA_CLIENT_SECRET = process.env.STRAVA_CLIENT_SECRET;
-let STRAVA_REFRESH_TOKEN = process.env.STRAVA_REFRESH_TOKEN;
-
 /* =========================
    STRAVA
 ========================= */
 
 // Refresh Strava token
-async function refreshStravaToken() {
+async function refreshStravaToken(stravaTokens) {
   const res = await fetch("https://www.strava.com/oauth/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: STRAVA_CLIENT_ID,
-      client_secret: STRAVA_CLIENT_SECRET,
+      client_id: process.env.STRAVA_CLIENT_ID,
+      client_secret: process.env.STRAVA_CLIENT_SECRET,
       grant_type: "refresh_token",
-      refresh_token: STRAVA_REFRESH_TOKEN
+      refresh_token: stravaTokens.refreshToken
     })
   });
 
   const data = await res.json();
-  STRAVA_REFRESH_TOKEN = data.refresh_token;
+  
+  // Update the tokens object
+  stravaTokens.accessToken = data.access_token;
+  stravaTokens.refreshToken = data.refresh_token;
+  stravaTokens.expiresAt = data.expires_at;
+  
   return data.access_token;
 }
 
 // Fetch Strava runs
-async function getStravaActivities() {
-  const accessToken = await refreshStravaToken();
+async function getStravaActivities(stravaTokens) {
+  // Check if token needs refresh
+  const now = Math.floor(Date.now() / 1000);
+  let accessToken = stravaTokens.accessToken;
+  
+  if (now >= stravaTokens.expiresAt) {
+    console.log('[INFO] Strava token expired, refreshing...');
+    accessToken = await refreshStravaToken(stravaTokens);
+  }
 
   // Fetch activities with pagination to ensure we get all recent ones
   let allActivities = [];
@@ -169,13 +176,13 @@ async function getStravaActivities() {
 
 // Sleep durations + stages (REAL seconds)
 // This endpoint also includes sleep scores, so we'll extract both
-async function getOuraSleepDurations(start, end) {
+async function getOuraSleepDurations(ouraAccessToken, start, end) {
   try {
     const url = `https://api.ouraring.com/v2/usercollection/sleep?start_date=${start}&end_date=${end}`;
     console.log(`Fetching Oura sleep data from: ${url}`);
     
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${OURA_ACCESS_TOKEN}` }
+      headers: { Authorization: `Bearer ${ouraAccessToken}` }
     });
 
     if (!res.ok) {
@@ -333,13 +340,13 @@ async function getOuraSleepDurations(start, end) {
 }
 
 // Sleep scores only (fallback to daily_sleep endpoint)
-async function getOuraSleepScores(start, end) {
+async function getOuraSleepScores(ouraAccessToken, start, end) {
   try {
     const url = `https://api.ouraring.com/v2/usercollection/daily_sleep?start_date=${start}&end_date=${end}`;
     console.log(`Fetching Oura sleep scores from: ${url}`);
     
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${OURA_ACCESS_TOKEN}` }
+      headers: { Authorization: `Bearer ${ouraAccessToken}` }
     });
 
     if (!res.ok) {
@@ -383,10 +390,10 @@ async function getOuraSleepScores(start, end) {
 }
 
 // Readiness scores
-async function getOuraReadinessScores(start, end) {
+async function getOuraReadinessScores(ouraAccessToken, start, end) {
   const res = await fetch(
     `https://api.ouraring.com/v2/usercollection/daily_readiness?start_date=${start}&end_date=${end}`,
-    { headers: { Authorization: `Bearer ${OURA_ACCESS_TOKEN}` } }
+    { headers: { Authorization: `Bearer ${ouraAccessToken}` } }
   );
 
   const data = await res.json();
@@ -430,32 +437,37 @@ function aggregateSleepByDay(sessions) {
    MERGE EVERYTHING
 ========================= */
 
-export default async function mergeData(startDate = "2025-12-01", endDate = "2025-12-31") {
-  console.log(`\n[INFO] Starting mergeData for range: ${startDate} to ${endDate}`);
-  
-  // Expand end date by 1 day to catch any sleep that might be labeled as the next day
-  // (e.g., Dec 30 night sleep might be labeled as Dec 31)
-  const expandedEndDate = new Date(endDate);
-  expandedEndDate.setDate(expandedEndDate.getDate() + 1);
-  const expandedEndDateStr = expandedEndDate.toISOString().split('T')[0];
-  console.log(`[DATE] Expanded end date to ${expandedEndDateStr} to catch next-day labeled sleep`);
-  
-  const runs = await getStravaActivities();
+// Export a function that creates mergeData with user's tokens
+export default function createMergeDataFunction(stravaTokens, ouraAccessToken) {
+  return async function mergeData(startDate = "2025-12-01", endDate = "2025-12-31") {
+    console.log(`\n[INFO] Starting mergeData for range: ${startDate} to ${endDate}`);
+    
+    // Expand end date by 1 day to catch any sleep that might be labeled as the next day
+    // (e.g., Dec 30 night sleep might be labeled as Dec 31)
+    const expandedEndDate = new Date(endDate);
+    expandedEndDate.setDate(expandedEndDate.getDate() + 1);
+    const expandedEndDateStr = expandedEndDate.toISOString().split('T')[0];
+    console.log(`[DATE] Expanded end date to ${expandedEndDateStr} to catch next-day labeled sleep`);
+    
+    const runs = await getStravaActivities(stravaTokens);
 
-  const sleepScores = await getOuraSleepScores(
-    startDate,
-    expandedEndDateStr
-  );
+    const sleepScores = await getOuraSleepScores(
+      ouraAccessToken,
+      startDate,
+      expandedEndDateStr
+    );
 
-  const readinessScores = await getOuraReadinessScores(
-    startDate,
-    expandedEndDateStr
-  );
+    const readinessScores = await getOuraReadinessScores(
+      ouraAccessToken,
+      startDate,
+      expandedEndDateStr
+    );
 
-  const sleepSessions = await getOuraSleepDurations(
-    startDate,
-    expandedEndDateStr
-  );
+    const sleepSessions = await getOuraSleepDurations(
+      ouraAccessToken,
+      startDate,
+      expandedEndDateStr
+    );
 
   const sleepByDate = aggregateSleepByDay(sleepSessions);
 
@@ -611,11 +623,12 @@ export default async function mergeData(startDate = "2025-12-01", endDate = "202
   console.log("Latest date with run:", datesWithRuns.length > 0 ? datesWithRuns[datesWithRuns.length - 1] : "none");
   console.log("Requested date range:", startDate, "to", endDate);
 
-  // Sort by date
-  return Object.fromEntries(
-    Object.entries(merged).sort(([a], [b]) =>
-      a.localeCompare(b)
-    )
-  );
-}
+    // Sort by date
+    return Object.fromEntries(
+      Object.entries(merged).sort(([a], [b]) =>
+        a.localeCompare(b)
+      )
+    );
+  }; // End of mergeData function
+} // End of createMergeDataFunction
 
