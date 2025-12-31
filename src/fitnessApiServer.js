@@ -101,6 +101,15 @@ async function startServer() {
   }
 
   /* =========================
+     HEALTH CHECK
+  ========================= */
+  
+  app.get("/health", (req, res) => {
+    console.log('[HEALTH] Health check requested');
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  /* =========================
      OAUTH ROUTES
   ========================= */
 
@@ -378,6 +387,7 @@ async function startServer() {
 
   // Redirect root to login or dashboard
   app.get("/", (req, res) => {
+    console.log('[HTTP] GET / - Session exists:', !!req.session);
     if (req.session && req.session.stravaTokens && req.session.ouraToken) {
       res.redirect('/dashboard');
     } else {
@@ -395,10 +405,21 @@ async function startServer() {
   });
 
   // Start server
-  app.listen(port, '0.0.0.0', () => {
+  const server = app.listen(port, '0.0.0.0', () => {
     console.log(`[INFO] Server running on port ${port}`);
+    console.log(`[INFO] Listening on 0.0.0.0:${port}`);
     console.log(`[INFO] Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`[INFO] Ready to accept connections`);
+  });
+
+  server.on('error', (err) => {
+    console.error('[ERROR] Server error:', err);
+  });
+
+  // Log all requests for debugging
+  app.use((req, res, next) => {
+    console.log(`[HTTP] ${req.method} ${req.path} from ${req.ip}`);
+    next();
   });
 }
 
