@@ -14,20 +14,26 @@
       min-height: 100vh;
       margin: 0;
     }
+    .page-header {
+      max-width: 1200px;
+      margin: 0 auto 40px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     h1 {
       font-size: 2.2em;
       text-align: center;
-      margin-bottom: 40px;
       color: #2c3e50;
       font-weight: 600;
       letter-spacing: -0.5px;
-      position: relative;
+      margin: 0;
+      flex: 1;
     }
     .logout-button {
       position: absolute;
-      top: 50%;
-      right: 20px;
-      transform: translateY(-50%);
+      right: 0;
       padding: 10px 20px;
       background: #e74c3c;
       color: white;
@@ -39,21 +45,19 @@
       transition: all 0.2s;
       text-decoration: none;
       display: inline-block;
+      white-space: nowrap;
     }
     .logout-button:hover {
       background: #c0392b;
-      transform: translateY(-50%) scale(1.05);
+      transform: scale(1.05);
     }
     @media (max-width: 768px) {
+      .page-header {
+        flex-direction: column;
+        gap: 15px;
+      }
       .logout-button {
         position: static;
-        transform: none;
-        display: block;
-        margin: 20px auto 0;
-        width: fit-content;
-      }
-      .logout-button:hover {
-        transform: scale(1.05);
       }
     }
     .chart-container {
@@ -314,10 +318,10 @@
     <button id="updateDates">Update Range</button>
   </div>
 
-  <h1 id="pageTitle">
-    December 2025
+  <div class="page-header">
+    <h1 id="pageTitle">December 2025</h1>
     <a href="/auth/logout" class="logout-button">Logout</a>
-  </h1>
+  </div>
 
   <div class="stats-container" id="statsContainer">
     <!-- Stats cards will be inserted here -->
