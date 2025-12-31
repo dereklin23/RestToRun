@@ -63,14 +63,33 @@ RestToRun/
 └── README.md
 ```
 
-## 🚀 Setup
+## 🚀 Quick Start
 
-### Prerequisites
+### Option 1: Deploy to Railway (Recommended) 🚂
+
+**Deploy your own instance in 5 minutes!**
+
+See the complete guide: **[RAILWAY_DEPLOYMENT.md](./RAILWAY_DEPLOYMENT.md)**
+
+1. Fork/Clone this repository
+2. Sign up for [Railway](https://railway.app) (free $5/month credit)
+3. Deploy from GitHub
+4. Add Redis database
+5. Configure environment variables
+6. Get your free subdomain: `your-app.up.railway.app`
+
+**Optional:** Connect your own domain (`resttorun.com`)
+
+---
+
+### Option 2: Local Development
+
+#### Prerequisites
 - Node.js v18 or higher
 - Strava account with API access
 - Oura Ring account with API access
 
-### Installation
+#### Installation
 
 1. **Clone the repository**
    ```bash
@@ -83,31 +102,32 @@ RestToRun/
    npm install
    ```
 
-3. **Configure environment variables**
+3. **Set up OAuth Applications**
+   
+   Follow the detailed guide: **[OAUTH_SETUP.md](./OAUTH_SETUP.md)**
+   
+   Quick summary:
+   - Create a Strava API application
+   - Create an Oura API application
+   - Set redirect URIs to `http://localhost:3000/auth/{provider}/callback`
+
+4. **Configure environment variables**
    
    Create a `.env` file in the root directory:
    ```env
-   # Oura API
-   OURA_ACCESS_TOKEN=your_oura_personal_access_token
+   # Session Secret (generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+   SESSION_SECRET=your-secure-session-secret
    
-   # Strava API
+   # Strava OAuth
    STRAVA_CLIENT_ID=your_strava_client_id
    STRAVA_CLIENT_SECRET=your_strava_client_secret
-   STRAVA_REFRESH_TOKEN=your_strava_refresh_token
+   STRAVA_REDIRECT_URI=http://localhost:3000/auth/strava/callback
+   
+   # Oura OAuth
+   OURA_CLIENT_ID=your_oura_client_id
+   OURA_CLIENT_SECRET=your_oura_client_secret
+   OURA_REDIRECT_URI=http://localhost:3000/auth/oura/callback
    ```
-
-### Getting API Credentials
-
-#### Oura Ring
-1. Visit [Oura Cloud](https://cloud.ouraring.com/)
-2. Go to Personal Access Tokens
-3. Generate a new token with `daily` and `sleep` scopes
-
-#### Strava
-1. Go to [Strava API Settings](https://www.strava.com/settings/api)
-2. Create an application
-3. Note your Client ID and Client Secret
-4. Use OAuth2 flow to get a refresh token
 
 ## 🎯 Usage
 

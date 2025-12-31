@@ -9,15 +9,45 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
+
+// Redis session store setup (for production)
+let sessionStore;
+if (process.env.REDIS_URL) {
+  try {
+    const { createClient } = await import('redis');
+    const RedisStore = (await import('connect-redis')).default;
+    
+    const redisClient = createClient({
+      url: process.env.REDIS_URL,
+      socket: {
+        tls: process.env.REDIS_URL.startsWith('rediss://'),
+        rejectUnauthorized: false
+      }
+    });
+    
+    redisClient.on('error', (err) => console.log('[REDIS] [ERROR] Redis Client Error:', err));
+    redisClient.on('connect', () => console.log('[REDIS] [INFO] Connected to Redis'));
+    
+    await redisClient.connect();
+    sessionStore = new RedisStore({ client: redisClient });
+    console.log('[SESSION] [INFO] Using Redis session store');
+  } catch (error) {
+    console.log('[SESSION] [WARNING] Redis setup failed, falling back to memory store:', error.message);
+  }
+} else {
+  console.log('[SESSION] [INFO] Using memory session store (development mode)');
+}
 
 // Session configuration
 app.use(session({
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || 'change-this-secret-key-in-production',
   resave: false,
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
   }
 }));
