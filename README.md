@@ -8,6 +8,13 @@ A comprehensive fitness dashboard that overlays and visualizes training data fro
 
 ## ✨ Features
 
+### 🎯 Goal Tracking & Progress Monitoring
+- **Weekly & Monthly Goals**: Set targets for mileage, runs, sleep, and readiness
+- **Visual Progress Bars**: Beautiful gradient cards showing completion percentage
+- **Streak Tracking**: Track consecutive days of achieving sleep, run, and readiness goals
+- **Personal Bests**: Automatic tracking of your best streaks
+- **Smart Calculations**: Goals update automatically based on your data
+
 ### 📊 Interactive Visualizations
 - **Sleep Breakdown Chart**: Stacked bar chart showing Light, REM, and Deep sleep stages
 - **Training Metrics Chart**: Multi-axis line chart displaying:
@@ -69,14 +76,19 @@ Experience RestToRun live! Connect your Strava and Oura accounts to see your per
 RestToRun/
 ├── public/
 │   ├── dashboardClient.js          # Client-side chart visualization
+│   ├── goalsManager.js             # Goal tracking system
 │   ├── trainingDashboard.html      # Main dashboard UI
+│   ├── login.html                  # OAuth login page
 │   └── index.html                  # Entry point
 ├── src/
-│   ├── apiServer.js                # Express API server
+│   ├── fitnessApiServer.js         # Express API server with OAuth
 │   └── services/
-│       └── fitnessDataService.js   # Strava & Oura API integration
+│       └── stravaOuraIntegration.js # Strava & Oura API integration
 ├── .env                             # Environment variables (not in repo)
 ├── package.json
+├── GOAL_TRACKING_FEATURE.md         # Goal tracking documentation
+├── RAILWAY_DEPLOYMENT.md            # Deployment guide
+├── OAUTH_SETUP.md                   # OAuth setup guide
 └── README.md
 ```
 
@@ -247,6 +259,16 @@ The application uses text-based log indicators for clarity:
 | `[TOOLTIP]` | Tooltip formatting logs |
 
 ## 📈 Recent Updates
+
+### December 31, 2025 - Goal Tracking Feature 🎯
+- **Added comprehensive goal tracking system**
+  - Set weekly and monthly goals for mileage, runs, sleep, and readiness
+  - Visual progress bars with gradient card UI
+  - Automatic progress calculation from dashboard data
+  - Streak tracking for sleep, runs, and readiness
+  - Personal best tracking
+  - LocalStorage persistence
+- See detailed documentation: **[GOAL_TRACKING_FEATURE.md](./GOAL_TRACKING_FEATURE.md)**
 
 ### December 31, 2025 - Production Deployment 🎉
 - **Successfully deployed to Railway**: https://resttorun-production.up.railway.app
