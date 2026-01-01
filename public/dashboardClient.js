@@ -3,6 +3,7 @@ let chartsInitialized = false;
 let isInitializing = false;
 let sleepChartInstance = null;
 let distanceChartInstance = null;
+let mileageChartInstance = null;
 let initRetryCount = 0;
 const MAX_RETRIES = 50; // Max 5 seconds of retries
 
@@ -1542,6 +1543,226 @@ async function loadDataAndCreateCharts(startDate, endDate) {
           clearInterval(monitorInterval2);
         }
       }, 1000);
+      
+  /* =========================
+     WEEKLY MILEAGE BAR CHART
+  ========================= */
+  
+    try {
+      // Destroy existing chart if it exists
+      if (mileageChartInstance) {
+        mileageChartInstance.destroy();
+        mileageChartInstance = null;
+      }
+
+      const mileageChartEl = document.getElementById("mileageChart");
+      if (!mileageChartEl) {
+        console.warn("Mileage chart canvas element not found - skipping");
+      } else {
+        // Calculate weekly mileage data
+        // Group data by week (Sunday - Saturday)
+        const weeklyData = {};
+        const weeks = [];
+        
+        data.forEach(day => {
+          const date = new Date(day.date + 'T00:00:00');
+          
+          // Get the Sunday of the week for this date
+          const dayOfWeek = date.getDay();
+          const sundayDate = new Date(date);
+          sundayDate.setDate(date.getDate() - dayOfWeek);
+          const weekKey = sundayDate.toISOString().split('T')[0];
+          
+          if (!weeklyData[weekKey]) {
+            weeklyData[weekKey] = {
+              startDate: weekKey,
+              totalMiles: 0,
+              runs: 0
+            };
+          }
+          
+          weeklyData[weekKey].totalMiles += (day.distance || 0);
+          if (day.distance > 0) {
+            weeklyData[weekKey].runs++;
+          }
+        });
+        
+        // Sort weeks and prepare data arrays
+        const sortedWeeks = Object.keys(weeklyData).sort();
+        const weekLabels = sortedWeeks.map(weekStart => {
+          const date = new Date(weekStart + 'T00:00:00');
+          const options = { month: 'short', day: 'numeric' };
+          return date.toLocaleDateString('en-US', options);
+        });
+        const weeklyMiles = sortedWeeks.map(week => Math.round(weeklyData[week].totalMiles * 10) / 10);
+        
+        // Calculate 4-week rolling average
+        const rollingAverage = [];
+        for (let i = 0; i < weeklyMiles.length; i++) {
+          const start = Math.max(0, i - 3);
+          const slice = weeklyMiles.slice(start, i + 1);
+          const avg = slice.reduce((sum, val) => sum + val, 0) / slice.length;
+          rollingAverage.push(Math.round(avg * 10) / 10);
+        }
+        
+        console.log("[INFO] Weekly mileage data:", {
+          weeks: sortedWeeks.length,
+          totalMiles: weeklyMiles.reduce((sum, val) => sum + val, 0),
+          avgWeekly: Math.round((weeklyMiles.reduce((sum, val) => sum + val, 0) / weeklyMiles.length) * 10) / 10
+        });
+        
+        // Create mileage bar chart with rolling average line
+        mileageChartInstance = new Chart(mileageChartEl, {
+          type: 'bar',
+          data: {
+            labels: weekLabels,
+            datasets: [
+              {
+                label: 'Weekly Mileage',
+                data: weeklyMiles,
+                backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                borderColor: 'rgba(231, 76, 60, 1)',
+                borderWidth: 2,
+                borderRadius: 6,
+                order: 2
+              },
+              {
+                label: '4-Week Average',
+                data: rollingAverage,
+                type: 'line',
+                borderColor: 'rgba(52, 152, 219, 1)',
+                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                borderWidth: 3,
+                pointRadius: 4,
+                pointBackgroundColor: 'rgba(52, 152, 219, 1)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                tension: 0.4,
+                fill: false,
+                order: 1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 2.5,
+            interaction: {
+              intersect: false,
+              mode: 'index'
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+                labels: {
+                  font: {
+                    size: 13,
+                    weight: '600'
+                  },
+                  color: '#2c3e50',
+                  padding: 15,
+                  usePointStyle: true,
+                  pointStyle: 'circle'
+                }
+              },
+              tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                titleFont: {
+                  size: 14,
+                  weight: 'bold'
+                },
+                bodyFont: {
+                  size: 13
+                },
+                padding: 12,
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+                borderWidth: 1,
+                displayColors: true,
+                callbacks: {
+                  label: function(context) {
+                    let label = context.dataset.label || '';
+                    if (label) {
+                      label += ': ';
+                    }
+                    label += context.parsed.y.toFixed(1) + ' mi';
+                    
+                    // Add run count for weekly bars
+                    if (context.datasetIndex === 0) {
+                      const weekKey = sortedWeeks[context.dataIndex];
+                      const runs = weeklyData[weekKey].runs;
+                      label += ` (${runs} ${runs === 1 ? 'run' : 'runs'})`;
+                    }
+                    
+                    return label;
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: {
+                  display: false,
+                  drawBorder: false
+                },
+                ticks: {
+                  font: {
+                    size: 11,
+                    weight: '500'
+                  },
+                  color: '#7f8c8d',
+                  maxRotation: 45,
+                  minRotation: 0
+                },
+                border: {
+                  display: false
+                }
+              },
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.05)',
+                  drawBorder: false
+                },
+                ticks: {
+                  font: {
+                    size: 12,
+                    weight: '500'
+                  },
+                  color: '#7f8c8d',
+                  padding: 10,
+                  callback: function(value) {
+                    return value + ' mi';
+                  }
+                },
+                title: {
+                  display: true,
+                  text: 'Miles',
+                  font: {
+                    size: 13,
+                    weight: '600'
+                  },
+                  color: '#2c3e50',
+                  padding: {
+                    bottom: 10
+                  }
+                },
+                border: {
+                  display: false
+                }
+              }
+            }
+          }
+        });
+        
+        console.log("[SUCCESS] Mileage chart created successfully");
+        mileageChartEl.chart = mileageChartInstance;
+      }
+    } catch (error) {
+      console.error("[ERROR] Error creating mileage chart:", error);
+    }
       
       // Mark initialization as complete
       isInitializing = false;
