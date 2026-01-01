@@ -2288,7 +2288,14 @@ function updateGoalsWithData(data, isSingleDay = false) {
 // Training Load Analysis Rendering
 function renderTrainingLoadAnalysis(data) {
   const container = document.getElementById('trainingLoadContent');
+  const containerParent = document.getElementById('trainingLoadContainer');
+  
   if (!container || !data || data.length === 0) return;
+
+  // Make sure the container is visible
+  if (containerParent) {
+    containerParent.style.display = 'block';
+  }
 
   if (!trainingLoadAnalyzer) {
     trainingLoadAnalyzer = new TrainingLoadAnalyzer();
