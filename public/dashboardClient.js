@@ -1549,16 +1549,41 @@ async function loadDataAndCreateCharts(startDate, endDate) {
   ========================= */
   
     try {
-      // Destroy existing chart if it exists
-      if (mileageChartInstance) {
-        mileageChartInstance.destroy();
-        mileageChartInstance = null;
-      }
-
-      const mileageChartEl = document.getElementById("mileageChart");
-      if (!mileageChartEl) {
-        console.warn("Mileage chart canvas element not found - skipping");
+      // Only show mileage chart for multi-day views
+      if (isSingleDay || data.length <= 1) {
+        console.log("[INFO] Skipping mileage chart for single-day view");
+        
+        // Hide the mileage chart container
+        const mileageChartEl = document.getElementById("mileageChart");
+        if (mileageChartEl) {
+          const mileageContainer = mileageChartEl.closest('.chart-container');
+          if (mileageContainer) {
+            mileageContainer.style.display = 'none';
+          }
+        }
+        
+        // Destroy existing chart if it exists
+        if (mileageChartInstance) {
+          mileageChartInstance.destroy();
+          mileageChartInstance = null;
+        }
       } else {
+        // Multi-day view - show the chart
+        const mileageChartEl = document.getElementById("mileageChart");
+        if (!mileageChartEl) {
+          console.warn("Mileage chart canvas element not found - skipping");
+        } else {
+          // Show the mileage chart container
+          const mileageContainer = mileageChartEl.closest('.chart-container');
+          if (mileageContainer) {
+            mileageContainer.style.display = 'block';
+          }
+          
+          // Destroy existing chart if it exists
+          if (mileageChartInstance) {
+            mileageChartInstance.destroy();
+            mileageChartInstance = null;
+          }
         // Calculate weekly mileage data
         // Group data by week (Sunday - Saturday)
         const weeklyData = {};
@@ -1759,6 +1784,7 @@ async function loadDataAndCreateCharts(startDate, endDate) {
         
         console.log("[SUCCESS] Mileage chart created successfully");
         mileageChartEl.chart = mileageChartInstance;
+      }
       }
     } catch (error) {
       console.error("[ERROR] Error creating mileage chart:", error);
