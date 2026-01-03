@@ -203,16 +203,18 @@ function formatDateRangeTitle(startDate, endDate) {
         return "Last 30 Days";
       }
       
+      // Check for "This Year" FIRST (more specific - Jan 1 to today)
+      // This must come before "This Month" because in January, both would match
+      if (startYear === currentYear && startMonth === 1 && startDay === 1 && endDate === todayStr) {
+        return "This Year";
+      }
+      
       // Check for "This Month" (startDate is first day of current month, endDate is today)
+      // Only matches if NOT January (since January would be caught by "This Year" above)
       const firstOfMonth = new Date(currentYear, currentMonth, 1);
       const firstOfMonthStr = formatDate(firstOfMonth);
       if (startDate === firstOfMonthStr && endDate === todayStr) {
         return "This Month";
-      }
-      
-      // Check for "This Year" (startDate is Jan 1 of current year, endDate is today)
-      if (startYear === currentYear && startMonth === 1 && startDay === 1 && endDate === todayStr) {
-        return "This Year";
       }
     }
     
