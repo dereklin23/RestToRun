@@ -4,15 +4,51 @@
   <meta charset="UTF-8" />
   <title>Athlete Signal</title>
   <style>
+    /* CSS Variables for Theming */
+    :root {
+      --bg-primary: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      --bg-card: #ffffff;
+      --bg-secondary: rgba(255, 255, 255, 0.5);
+      --text-primary: #2c3e50;
+      --text-secondary: #7f8c8d;
+      --text-muted: #95a5a6;
+      --border-color: #e0e0e0;
+      --border-light: rgba(0, 0, 0, 0.1);
+      --shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+      --shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.2);
+      --input-bg: #ffffff;
+      --input-border: #e0e0e0;
+      --input-focus: #3498db;
+    }
+
+    /* Dark Theme Variables */
+    .dark-theme {
+      --bg-primary: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      --bg-card: #1e2742;
+      --bg-secondary: rgba(30, 39, 66, 0.5);
+      --text-primary: #ecf0f1;
+      --text-secondary: #bdc3c7;
+      --text-muted: #95a5a6;
+      --border-color: #2c3e50;
+      --border-light: rgba(255, 255, 255, 0.1);
+      --shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+      --shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.5);
+      --input-bg: #2c3e50;
+      --input-border: #34495e;
+      --input-focus: #3498db;
+    }
+
     * {
       box-sizing: border-box;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
       padding: 40px 20px;
-      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      background: var(--bg-primary);
       min-height: 100vh;
       margin: 0;
+      color: var(--text-primary);
+      transition: background 0.3s ease, color 0.3s ease;
     }
     .page-header {
       max-width: 1200px;
@@ -25,15 +61,39 @@
     h1 {
       font-size: 2.2em;
       text-align: center;
-      color: #2c3e50;
+      color: var(--text-primary);
       font-weight: 600;
       letter-spacing: -0.5px;
       margin: 0;
       flex: 1;
+      transition: color 0.3s ease;
     }
-    .logout-button {
+    .header-actions {
       position: absolute;
       right: 0;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .theme-toggle {
+      padding: 10px 15px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .theme-toggle:hover {
+      border-color: var(--input-focus);
+      transform: scale(1.05);
+    }
+    .logout-button {
       padding: 10px 20px;
       background: #e74c3c;
       color: white;
@@ -56,19 +116,22 @@
         flex-direction: column;
         gap: 15px;
       }
-      .logout-button {
+      .header-actions {
         position: static;
+        width: 100%;
+        justify-content: center;
       }
     }
     .chart-container {
       max-width: 1200px;
       width: 100%;
       margin: 0 auto 40px;
-      background: white;
+      background: var(--bg-card);
       border-radius: 12px;
       padding: 30px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+      box-shadow: var(--shadow);
       overflow: visible; /* Ensure chart can extend if needed */
+      transition: background 0.3s ease, box-shadow 0.3s ease;
     }
     .chart-container.single-day {
       max-width: 600px;
@@ -113,33 +176,35 @@
       max-width: 1200px;
       width: 100%;
       margin: 0 auto 30px;
-      background: white;
+      background: var(--bg-card);
       border-radius: 12px;
       padding: 25px 30px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
+      box-shadow: var(--shadow);
       display: flex;
       align-items: center;
       gap: 20px;
       flex-wrap: wrap;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
     }
     .date-selector label {
       font-weight: 600;
-      color: #2c3e50;
+      color: var(--text-primary);
       font-size: 14px;
+      transition: color 0.3s ease;
     }
     .date-selector input[type="date"] {
       padding: 10px 15px;
-      border: 2px solid #e0e0e0;
+      border: 2px solid var(--input-border);
       border-radius: 8px;
       font-size: 14px;
       font-family: inherit;
-      color: #2c3e50;
-      background: white;
-      transition: border-color 0.2s;
+      color: var(--text-primary);
+      background: var(--input-bg);
+      transition: border-color 0.2s, background 0.3s ease, color 0.3s ease;
     }
     .date-selector input[type="date"]:focus {
       outline: none;
-      border-color: #3498db;
+      border-color: var(--input-focus);
     }
     .date-selector button {
       padding: 10px 25px;
@@ -214,9 +279,10 @@
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 20px;
       padding: 20px;
-      background: rgba(255, 255, 255, 0.5);
+      background: var(--bg-secondary);
       border-radius: 12px;
       position: relative;
+      transition: background 0.3s ease;
     }
     .stats-column.sleep-stats {
       border-left: 4px solid #3498db;
@@ -228,13 +294,14 @@
       grid-column: 1 / -1;
       font-size: 18px;
       font-weight: 700;
-      color: #2c3e50;
+      color: var(--text-primary);
       text-transform: uppercase;
       letter-spacing: 1px;
       padding-bottom: 10px;
       margin-bottom: 10px;
-      border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+      border-bottom: 2px solid var(--border-light);
       text-align: center;
+      transition: color 0.3s ease, border-color 0.3s ease;
     }
     .sleep-stats .stats-column-title {
       color: #3498db;
@@ -654,8 +721,9 @@
     .goals-header h2 {
       font-size: 24px;
       font-weight: 700;
-      color: #2c3e50;
+      color: var(--text-primary);
       margin: 0;
+      transition: color 0.3s ease;
     }
     .goals-header button {
       padding: 10px 20px;
@@ -726,18 +794,20 @@
     }
     .streaks-section {
       padding: 20px;
-      background: #f8f9fa;
+      background: var(--bg-secondary);
       border-radius: 8px;
-      border: 2px solid #e9ecef;
+      border: 2px solid var(--border-color);
+      transition: background 0.3s ease, border-color 0.3s ease;
     }
     .streaks-title {
       font-size: 18px;
       font-weight: 700;
-      color: #2c3e50;
+      color: var(--text-primary);
       margin-bottom: 15px;
       display: flex;
       align-items: center;
       gap: 8px;
+      transition: color 0.3s ease;
     }
     .streaks-grid {
       display: grid;
@@ -749,9 +819,10 @@
       align-items: center;
       gap: 12px;
       padding: 12px;
-      background: white;
+      background: var(--bg-card);
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      box-shadow: var(--shadow);
+      transition: background 0.3s ease, box-shadow 0.3s ease;
     }
     .streak-icon {
       font-size: 28px;
@@ -1010,7 +1081,13 @@
 
   <div class="page-header">
     <h1 id="pageTitle">December 2025</h1>
-    <a href="/auth/logout" class="logout-button">Logout</a>
+    <div class="header-actions">
+      <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+        <span id="themeIcon">🌙</span>
+        <span id="themeText">Dark</span>
+      </button>
+      <a href="/auth/logout" class="logout-button">Logout</a>
+    </div>
   </div>
 
   <!-- Training Load & Recovery Analysis -->
@@ -1179,6 +1256,50 @@
   <script src="trainingLoadAnalyzer.js"></script>
   <script src="yearlyGoalsPlanner.js"></script>
   <script src="goalsManager.js"></script>
+  <script>
+    // Theme Toggle Functionality
+    (function() {
+      const themeToggle = document.getElementById('themeToggle');
+      const themeIcon = document.getElementById('themeIcon');
+      const themeText = document.getElementById('themeText');
+      const htmlElement = document.documentElement;
+      
+      // Load saved theme preference
+      const savedTheme = localStorage.getItem('athletesignal_theme') || 'light';
+      
+      // Apply saved theme
+      if (savedTheme === 'dark') {
+        htmlElement.classList.add('dark-theme');
+        if (themeIcon) themeIcon.textContent = '☀️';
+        if (themeText) themeText.textContent = 'Light';
+      } else {
+        htmlElement.classList.remove('dark-theme');
+        if (themeIcon) themeIcon.textContent = '🌙';
+        if (themeText) themeText.textContent = 'Dark';
+      }
+      
+      // Toggle theme on button click
+      if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+          const isDark = htmlElement.classList.contains('dark-theme');
+          
+          if (isDark) {
+            // Switch to light
+            htmlElement.classList.remove('dark-theme');
+            localStorage.setItem('athletesignal_theme', 'light');
+            if (themeIcon) themeIcon.textContent = '🌙';
+            if (themeText) themeText.textContent = 'Dark';
+          } else {
+            // Switch to dark
+            htmlElement.classList.add('dark-theme');
+            localStorage.setItem('athletesignal_theme', 'dark');
+            if (themeIcon) themeIcon.textContent = '☀️';
+            if (themeText) themeText.textContent = 'Light';
+          }
+        });
+      }
+    })();
+  </script>
   <script src="dashboardClient.js"></script>
 </body>
 </html>

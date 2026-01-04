@@ -13,6 +13,31 @@ let trainingLoadAnalyzer = null;
 // Initialize Yearly Goals Planner
 let yearlyGoalsPlanner = null;
 
+// Get chart colors based on current theme
+function getChartColors() {
+  const isDark = document.documentElement.classList.contains('dark-theme');
+  
+  if (isDark) {
+    return {
+      text: '#ecf0f1',
+      textSecondary: '#bdc3c7',
+      grid: 'rgba(255, 255, 255, 0.1)',
+      border: 'rgba(255, 255, 255, 0.2)',
+      tooltipBg: 'rgba(0, 0, 0, 0.9)',
+      tooltipBorder: 'rgba(255, 255, 255, 0.3)'
+    };
+  } else {
+    return {
+      text: '#2c3e50',
+      textSecondary: '#7f8c8d',
+      grid: 'rgba(0, 0, 0, 0.05)',
+      border: 'rgba(255, 255, 255, 0.2)',
+      tooltipBg: 'rgba(0, 0, 0, 0.8)',
+      tooltipBorder: 'rgba(255, 255, 255, 0.2)'
+    };
+  }
+}
+
 // Wait for DOM and Chart.js to be ready
 function initCharts() {
   // Prevent multiple calls
