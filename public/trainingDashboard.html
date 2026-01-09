@@ -1082,9 +1082,9 @@
   <div class="page-header">
     <h1 id="pageTitle">December 2025</h1>
     <div class="header-actions">
-      <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+      <button class="theme-toggle" id="themeToggle" title="Toggle theme">
         <span id="themeIcon">🌙</span>
-        <span id="themeText">Dark</span>
+        <span id="themeText">Toggle</span>
       </button>
       <a href="/auth/logout" class="logout-button">Logout</a>
     </div>
@@ -1271,11 +1271,9 @@
       if (savedTheme === 'dark') {
         htmlElement.classList.add('dark-theme');
         if (themeIcon) themeIcon.textContent = '☀️';
-        if (themeText) themeText.textContent = 'Light';
       } else {
         htmlElement.classList.remove('dark-theme');
         if (themeIcon) themeIcon.textContent = '🌙';
-        if (themeText) themeText.textContent = 'Dark';
       }
       
       // Toggle theme on button click
@@ -1288,13 +1286,11 @@
             htmlElement.classList.remove('dark-theme');
             localStorage.setItem('athletesignal_theme', 'light');
             if (themeIcon) themeIcon.textContent = '🌙';
-            if (themeText) themeText.textContent = 'Dark';
           } else {
             // Switch to dark
             htmlElement.classList.add('dark-theme');
             localStorage.setItem('athletesignal_theme', 'dark');
             if (themeIcon) themeIcon.textContent = '☀️';
-            if (themeText) themeText.textContent = 'Light';
           }
         });
       }
