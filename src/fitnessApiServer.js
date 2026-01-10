@@ -11,11 +11,14 @@ const __dirname = dirname(__filename);
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Global Redis client for data caching (separate from session store)
+let redisDataClient = null;
+
 // Setup Redis if URL is provided
 async function setupRedis() {
   if (!process.env.REDIS_URL) {
     console.log('[SESSION] [INFO] No REDIS_URL found, using memory session store (development mode)');
-    return null;
+    return { store: null, dataClient: null };
   }
 
   try {
@@ -23,6 +26,7 @@ async function setupRedis() {
     const { createClient } = await import('redis');
     const RedisStore = (await import('connect-redis')).default;
     
+    // Create Redis client for session store
     const redisClient = createClient({
       url: process.env.REDIS_URL,
       socket: {
@@ -31,28 +35,50 @@ async function setupRedis() {
       }
     });
     
+    // Create separate Redis client for data caching
+    redisDataClient = createClient({
+      url: process.env.REDIS_URL,
+      socket: {
+        tls: process.env.REDIS_URL.startsWith('rediss://'),
+        rejectUnauthorized: false
+      }
+    });
+    
     redisClient.on('error', (err) => {
-      console.log('[REDIS] [ERROR] Redis Client Error:', err.message);
+      console.log('[REDIS] [ERROR] Redis Session Client Error:', err.message);
+    });
+    
+    redisDataClient.on('error', (err) => {
+      console.log('[REDIS] [ERROR] Redis Data Client Error:', err.message);
     });
     
     redisClient.on('connect', () => {
-      console.log('[REDIS] [INFO] Successfully connected to Redis');
+      console.log('[REDIS] [INFO] Successfully connected to Redis (session store)');
+    });
+    
+    redisDataClient.on('connect', () => {
+      console.log('[REDIS] [INFO] Successfully connected to Redis (data cache)');
     });
     
     await redisClient.connect();
+    await redisDataClient.connect();
+    
     const store = new RedisStore({ client: redisClient });
     console.log('[SESSION] [INFO] Using Redis session store');
-    return store;
+    console.log('[CACHE] [INFO] Redis data cache client ready');
+    
+    return { store, dataClient: redisDataClient };
   } catch (error) {
     console.log('[SESSION] [WARNING] Redis setup failed, using memory store:', error.message);
-    return null;
+    return { store: null, dataClient: null };
   }
 }
 
 // Initialize app with async setup
 async function startServer() {
-  // Setup session store first
-  const sessionStore = await setupRedis();
+  // Setup session store and data cache client
+  const { store: sessionStore, dataClient } = await setupRedis();
+  redisDataClient = dataClient; // Make it globally available
   
   // Trust proxy for Railway (needed for secure cookies)
   app.set('trust proxy', 1);
@@ -113,6 +139,193 @@ async function startServer() {
   }
 
   /* =========================
+     CACHE HELPER FUNCTIONS
+  ========================= */
+
+  // Cache expiration time: 24 hours (in seconds)
+  const CACHE_EXPIRY = 24 * 60 * 60;
+
+  // Get cache key prefix for a session
+  function getCacheKeyPrefix(sessionId) {
+    return `cache:${sessionId}`;
+  }
+
+  // Get cached data for a session
+  async function getCachedData(sessionId, dataType) {
+    if (!redisDataClient) {
+      console.log('[CACHE] [INFO] Redis not available, skipping cache');
+      return null;
+    }
+
+    try {
+      const key = `${getCacheKeyPrefix(sessionId)}:${dataType}`;
+      const data = await redisDataClient.get(key);
+      if (data) {
+        console.log(`[CACHE] [HIT] Found cached ${dataType} for session ${sessionId.substring(0, 8)}...`);
+        return JSON.parse(data);
+      }
+      console.log(`[CACHE] [MISS] No cached ${dataType} for session ${sessionId.substring(0, 8)}...`);
+      return null;
+    } catch (error) {
+      console.error(`[CACHE] [ERROR] Failed to get cached ${dataType}:`, error.message);
+      return null;
+    }
+  }
+
+  // Set cached data for a session
+  async function setCachedData(sessionId, dataType, data) {
+    if (!redisDataClient) {
+      console.log('[CACHE] [INFO] Redis not available, skipping cache set');
+      return false;
+    }
+
+    try {
+      const key = `${getCacheKeyPrefix(sessionId)}:${dataType}`;
+      await redisDataClient.setEx(key, CACHE_EXPIRY, JSON.stringify(data));
+      console.log(`[CACHE] [SET] Cached ${dataType} for session ${sessionId.substring(0, 8)}... (expires in ${CACHE_EXPIRY}s)`);
+      return true;
+    } catch (error) {
+      console.error(`[CACHE] [ERROR] Failed to set cached ${dataType}:`, error.message);
+      return false;
+    }
+  }
+
+  // Get cache timestamp
+  async function getCacheTimestamp(sessionId) {
+    if (!redisDataClient) return null;
+    try {
+      const timestamp = await redisDataClient.get(`${getCacheKeyPrefix(sessionId)}:timestamp`);
+      return timestamp ? parseInt(timestamp) : null;
+    } catch (error) {
+      console.error('[CACHE] [ERROR] Failed to get cache timestamp:', error.message);
+      return null;
+    }
+  }
+
+  // Set cache timestamp
+  async function setCacheTimestamp(sessionId) {
+    if (!redisDataClient) return false;
+    try {
+      const timestamp = Math.floor(Date.now() / 1000);
+      await redisDataClient.setEx(`${getCacheKeyPrefix(sessionId)}:timestamp`, CACHE_EXPIRY, timestamp.toString());
+      return true;
+    } catch (error) {
+      console.error('[CACHE] [ERROR] Failed to set cache timestamp:', error.message);
+      return false;
+    }
+  }
+
+  // Check if cache is fresh (less than 24 hours old)
+  async function isCacheFresh(sessionId) {
+    const timestamp = await getCacheTimestamp(sessionId);
+    if (!timestamp) return false;
+    
+    const age = Math.floor(Date.now() / 1000) - timestamp;
+    const isFresh = age < CACHE_EXPIRY;
+    console.log(`[CACHE] [INFO] Cache age: ${age}s, fresh: ${isFresh}`);
+    return isFresh;
+  }
+
+  // Clear all cache for a session
+  async function clearCache(sessionId) {
+    if (!redisDataClient) return false;
+    try {
+      const prefix = getCacheKeyPrefix(sessionId);
+      // Get all keys matching the prefix
+      const keys = await redisDataClient.keys(`${prefix}:*`);
+      if (keys.length > 0) {
+        await redisDataClient.del(keys);
+        console.log(`[CACHE] [CLEAR] Cleared ${keys.length} cache entries for session ${sessionId.substring(0, 8)}...`);
+      }
+      return true;
+    } catch (error) {
+      console.error('[CACHE] [ERROR] Failed to clear cache:', error.message);
+      return false;
+    }
+  }
+
+  /* =========================
+     DATA SYNC FUNCTION
+  ========================= */
+
+  // Sync all user data to cache (called after authentication)
+  async function syncUserDataToCache(sessionId, stravaTokens, ouraToken) {
+    if (!redisDataClient) {
+      console.log('[SYNC] [INFO] Redis not available, skipping data sync');
+      return false;
+    }
+
+    console.log(`[SYNC] [INFO] Starting data sync for session ${sessionId.substring(0, 8)}...`);
+
+    try {
+      // Fetch historical data - use a wide date range (last 2 years should cover most users)
+      const endDate = new Date();
+      // Expand end date by 1 day for sleep data (like mergeData does)
+      endDate.setDate(endDate.getDate() + 1);
+      const cacheEndDate = endDate.toISOString().split('T')[0];
+      
+      const startDate = new Date();
+      startDate.setFullYear(startDate.getFullYear() - 2);
+      const historicalStartDate = startDate.toISOString().split('T')[0];
+
+      console.log(`[SYNC] [INFO] Fetching data from ${historicalStartDate} to ${cacheEndDate}`);
+
+      // Use mergeData to fetch and process all data (it handles all the complexity)
+      const mergeData = createMergeDataFunction(stravaTokens, ouraToken.accessToken);
+      const mergedData = await mergeData(historicalStartDate, cacheEndDate);
+
+      // Extract processed data from merged structure for caching
+      // This preserves the merge logic and ensures consistency
+      const stravaActivities = [];
+      const ouraSleep = [];
+      const ouraReadiness = [];
+
+      Object.entries(mergedData).forEach(([date, value]) => {
+        // Cache all Strava runs (don't filter by date range - cache everything)
+        // Note: Runs already have a date field from getStravaActivities
+        if (value.runs && value.runs.length > 0) {
+          stravaActivities.push(...value.runs);
+        }
+        
+        // Cache sleep data
+        if (value.sleep && (value.sleep.total || value.sleep.score !== null)) {
+          ouraSleep.push({
+            date,
+            total: value.sleep.total ?? 0,
+            rem: value.sleep.rem ?? 0,
+            deep: value.sleep.deep ?? 0,
+            light: value.sleep.light ?? 0,
+            score: value.sleep.score ?? null
+          });
+        }
+        
+        // Cache readiness data
+        if (value.readiness && value.readiness.score !== null) {
+          ouraReadiness.push({
+            date,
+            score: value.readiness.score
+          });
+        }
+      });
+
+      // Cache the data
+      await Promise.all([
+        setCachedData(sessionId, 'strava:activities', stravaActivities),
+        setCachedData(sessionId, 'oura:sleep', ouraSleep),
+        setCachedData(sessionId, 'oura:readiness', ouraReadiness),
+        setCacheTimestamp(sessionId)
+      ]);
+
+      console.log(`[SYNC] [SUCCESS] Cached ${stravaActivities.length} Strava activities, ${ouraSleep.length} sleep sessions, ${ouraReadiness.length} readiness scores`);
+      return true;
+    } catch (error) {
+      console.error('[SYNC] [ERROR] Failed to sync data to cache:', error.message);
+      console.error('[SYNC] [ERROR] Stack:', error.stack);
+      return false;
+    }
+  }
+
+  /* =========================
      HEALTH CHECK
   ========================= */
   
@@ -165,12 +378,21 @@ async function startServer() {
         };
         
         // Explicitly save session before redirect
-        req.session.save((err) => {
+        req.session.save(async (err) => {
           if (err) {
             console.error('[ERROR] Session save error:', err);
             return res.redirect('/login.html?error=session_save_failed');
           }
           console.log('[SUCCESS] Strava connected successfully');
+          
+          // If Oura is also connected, trigger data sync in background
+          if (req.session.ouraToken) {
+            console.log('[SYNC] [INFO] Both Strava and Oura connected, triggering data sync...');
+            // Don't await - let it run in background
+            syncUserDataToCache(req.sessionID, req.session.stravaTokens, req.session.ouraToken)
+              .catch(err => console.error('[SYNC] [ERROR] Background sync failed:', err.message));
+          }
+          
           res.redirect('/login.html?strava=connected');
         });
       } else {
@@ -224,12 +446,21 @@ async function startServer() {
         };
         
         // Explicitly save session before redirect
-        req.session.save((err) => {
+        req.session.save(async (err) => {
           if (err) {
             console.error('[ERROR] Session save error:', err);
             return res.redirect('/login.html?error=session_save_failed');
           }
           console.log('[SUCCESS] Oura connected successfully');
+          
+          // If Strava is also connected, trigger data sync in background
+          if (req.session.stravaTokens) {
+            console.log('[SYNC] [INFO] Both Strava and Oura connected, triggering data sync...');
+            // Don't await - let it run in background
+            syncUserDataToCache(req.sessionID, req.session.stravaTokens, req.session.ouraToken)
+              .catch(err => console.error('[SYNC] [ERROR] Background sync failed:', err.message));
+          }
+          
           res.redirect('/login.html?oura=connected');
         });
       } else {
@@ -251,7 +482,14 @@ async function startServer() {
   });
 
   // Logout
-  app.get("/auth/logout", (req, res) => {
+  app.get("/auth/logout", async (req, res) => {
+    const sessionId = req.sessionID;
+    
+    // Clear cache for this session
+    if (sessionId) {
+      await clearCache(sessionId);
+    }
+    
     req.session.destroy((err) => {
       if (err) {
         console.error('[ERROR] Session destroy error:', err);
@@ -275,13 +513,111 @@ async function startServer() {
       
       console.log(`Fetching data for range: ${startDate} to ${endDate}`);
 
-      // Create mergeData function with user's tokens
-      const mergeData = createMergeDataFunction(
-        req.session.stravaTokens,
-        req.session.ouraToken.accessToken
-      );
-      
-      const merged = await mergeData(startDate, endDate);
+      // Check cache first
+      const cacheFresh = await isCacheFresh(req.sessionID);
+      let merged = null;
+
+      if (cacheFresh && redisDataClient) {
+        console.log('[CACHE] [INFO] Cache is fresh, attempting to use cached data...');
+        
+        // Try to get cached data
+        const [cachedActivities, cachedSleep, cachedReadiness] = await Promise.all([
+          getCachedData(req.sessionID, 'strava:activities'),
+          getCachedData(req.sessionID, 'oura:sleep'),
+          getCachedData(req.sessionID, 'oura:readiness')
+        ]);
+
+        if (cachedActivities !== null && cachedSleep !== null && cachedReadiness !== null) {
+          console.log('[CACHE] [HIT] Using cached data for all sources');
+          
+          // Reconstruct merged data structure from cache (matching mergeData output)
+          merged = {};
+          
+          // First, add all dates in the requested range to ensure we have entries for all dates
+          const allDatesInRange = [];
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+            allDatesInRange.push(dateStr);
+            merged[dateStr] = { runs: [], sleep: null, readiness: null };
+          }
+          
+          // Add sleep data (filter by date range)
+          cachedSleep.forEach(s => {
+            if (s.date >= startDate && s.date <= endDate) {
+              if (!merged[s.date]) {
+                merged[s.date] = { runs: [], sleep: null, readiness: null };
+              }
+              merged[s.date].sleep = {
+                total: s.total > 0 ? s.total : null,
+                rem: s.rem > 0 ? s.rem : null,
+                deep: s.deep > 0 ? s.deep : null,
+                light: s.light > 0 ? s.light : null,
+                score: s.score ?? null
+              };
+            }
+          });
+          
+          // Add readiness data (filter by date range)
+          cachedReadiness.forEach(r => {
+            if (r.date >= startDate && r.date <= endDate) {
+              if (!merged[r.date]) {
+                merged[r.date] = { runs: [], sleep: null, readiness: null };
+              }
+              merged[r.date].readiness = {
+                score: r.score ?? null
+              };
+            }
+          });
+          
+          // Add Strava activities (filter by date range)
+          cachedActivities.forEach(activity => {
+            const activityDate = activity.date;
+            if (activityDate >= startDate && activityDate <= endDate) {
+              if (!merged[activityDate]) {
+                merged[activityDate] = { runs: [], sleep: null, readiness: null };
+              }
+              merged[activityDate].runs.push(activity);
+            }
+          });
+          
+          console.log(`[CACHE] [INFO] Reconstructed merged data for ${Object.keys(merged).length} dates from cache`);
+        } else {
+          console.log('[CACHE] [MISS] Cache incomplete, will fetch from APIs');
+        }
+      } else {
+        console.log('[CACHE] [MISS] Cache not fresh or Redis unavailable, fetching from APIs');
+      }
+
+      // If cache miss, fetch from APIs
+      if (!merged) {
+        console.log('[API] [INFO] Fetching data from Strava and Oura APIs...');
+        const mergeData = createMergeDataFunction(
+          req.session.stravaTokens,
+          req.session.ouraToken.accessToken
+        );
+        
+        // Fetch with a wider date range to populate cache
+        const cacheEndDate = new Date().toISOString().split('T')[0];
+        const cacheStartDate = new Date();
+        cacheStartDate.setFullYear(cacheStartDate.getFullYear() - 2);
+        const historicalStartDate = cacheStartDate.toISOString().split('T')[0];
+        
+        const allMerged = await mergeData(historicalStartDate, cacheEndDate);
+        
+        // Filter to requested date range for response
+        merged = {};
+        Object.entries(allMerged).forEach(([date, value]) => {
+          if (date >= startDate && date <= endDate) {
+            merged[date] = value;
+          }
+        });
+
+        // Cache the full dataset in background (don't await)
+        syncUserDataToCache(req.sessionID, req.session.stravaTokens, req.session.ouraToken)
+          .catch(err => console.error('[CACHE] [ERROR] Background cache update failed:', err.message));
+      }
 
       // Get all available dates for debugging
       const allDates = Object.keys(merged).sort();
@@ -403,6 +739,29 @@ async function startServer() {
     } catch (err) {
       console.error("[ERROR] /data error:", err);
       return res.status(500).json({ error: "Failed to fetch data" });
+    }
+  });
+
+  // Cache refresh endpoint (manual invalidation)
+  app.post("/cache/refresh", requireAuth, async (req, res) => {
+    console.log("[API] /cache/refresh endpoint hit");
+    
+    try {
+      // Clear existing cache
+      await clearCache(req.sessionID);
+      console.log('[CACHE] [REFRESH] Cleared existing cache');
+      
+      // Trigger new data sync in background
+      syncUserDataToCache(req.sessionID, req.session.stravaTokens, req.session.ouraToken)
+        .catch(err => console.error('[CACHE] [ERROR] Background refresh failed:', err.message));
+      
+      res.json({ 
+        success: true, 
+        message: 'Cache refresh initiated. Data will be updated shortly.' 
+      });
+    } catch (error) {
+      console.error("[ERROR] /cache/refresh error:", error);
+      res.status(500).json({ error: "Failed to refresh cache" });
     }
   });
 

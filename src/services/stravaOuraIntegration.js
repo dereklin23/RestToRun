@@ -440,34 +440,34 @@ function aggregateSleepByDay(sessions) {
 // Export a function that creates mergeData with user's tokens
 export default function createMergeDataFunction(stravaTokens, ouraAccessToken) {
   return async function mergeData(startDate = "2025-12-01", endDate = "2025-12-31") {
-    console.log(`\n[INFO] Starting mergeData for range: ${startDate} to ${endDate}`);
-    
-    // Expand end date by 1 day to catch any sleep that might be labeled as the next day
-    // (e.g., Dec 30 night sleep might be labeled as Dec 31)
-    const expandedEndDate = new Date(endDate);
-    expandedEndDate.setDate(expandedEndDate.getDate() + 1);
-    const expandedEndDateStr = expandedEndDate.toISOString().split('T')[0];
-    console.log(`[DATE] Expanded end date to ${expandedEndDateStr} to catch next-day labeled sleep`);
-    
+  console.log(`\n[INFO] Starting mergeData for range: ${startDate} to ${endDate}`);
+  
+  // Expand end date by 1 day to catch any sleep that might be labeled as the next day
+  // (e.g., Dec 30 night sleep might be labeled as Dec 31)
+  const expandedEndDate = new Date(endDate);
+  expandedEndDate.setDate(expandedEndDate.getDate() + 1);
+  const expandedEndDateStr = expandedEndDate.toISOString().split('T')[0];
+  console.log(`[DATE] Expanded end date to ${expandedEndDateStr} to catch next-day labeled sleep`);
+  
     const runs = await getStravaActivities(stravaTokens);
 
-    const sleepScores = await getOuraSleepScores(
+  const sleepScores = await getOuraSleepScores(
       ouraAccessToken,
-      startDate,
-      expandedEndDateStr
-    );
+    startDate,
+    expandedEndDateStr
+  );
 
-    const readinessScores = await getOuraReadinessScores(
+  const readinessScores = await getOuraReadinessScores(
       ouraAccessToken,
-      startDate,
-      expandedEndDateStr
-    );
+    startDate,
+    expandedEndDateStr
+  );
 
-    const sleepSessions = await getOuraSleepDurations(
+  const sleepSessions = await getOuraSleepDurations(
       ouraAccessToken,
-      startDate,
-      expandedEndDateStr
-    );
+    startDate,
+    expandedEndDateStr
+  );
 
   const sleepByDate = aggregateSleepByDay(sleepSessions);
 
@@ -623,12 +623,12 @@ export default function createMergeDataFunction(stravaTokens, ouraAccessToken) {
   console.log("Latest date with run:", datesWithRuns.length > 0 ? datesWithRuns[datesWithRuns.length - 1] : "none");
   console.log("Requested date range:", startDate, "to", endDate);
 
-    // Sort by date
-    return Object.fromEntries(
-      Object.entries(merged).sort(([a], [b]) =>
-        a.localeCompare(b)
-      )
-    );
+  // Sort by date
+  return Object.fromEntries(
+    Object.entries(merged).sort(([a], [b]) =>
+      a.localeCompare(b)
+    )
+  );
   }; // End of mergeData function
 } // End of createMergeDataFunction
 
