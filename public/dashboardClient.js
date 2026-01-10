@@ -486,48 +486,48 @@ function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepSco
       <div class="stats-column sleep-stats">
         <div class="stats-column-title">😴 Recovery Metrics</div>
         <!-- Sleep Stats (Left Side) -->
-        <div class="stat-card sleep">
-          <div class="stat-label">Average Sleep</div>
-          <div class="stat-value">${formatHours(avgSleepHours)}</div>
-          <div class="stat-unit">per night</div>
-        </div>
-        <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgSleepScore)};">
-          <div class="stat-label">Avg Sleep Score</div>
-          <div class="stat-value" style="color: ${getScoreColor(avgSleepScore)};">${avgSleepScore}</div>
+      <div class="stat-card sleep">
+        <div class="stat-label">Average Sleep</div>
+        <div class="stat-value">${formatHours(avgSleepHours)}</div>
+        <div class="stat-unit">per night</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgSleepScore)};">
+        <div class="stat-label">Avg Sleep Score</div>
+        <div class="stat-value" style="color: ${getScoreColor(avgSleepScore)};">${avgSleepScore}</div>
           <div class="stat-unit">${sleepCrowns > 0 ? `👑 ${sleepCrowns}` : ''}</div>
-        </div>
-        <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgReadinessScore)};">
-          <div class="stat-label">Avg Readiness</div>
-          <div class="stat-value" style="color: ${getScoreColor(avgReadinessScore)};">${avgReadinessScore}</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid ${getScoreColor(avgReadinessScore)};">
+        <div class="stat-label">Avg Readiness</div>
+        <div class="stat-value" style="color: ${getScoreColor(avgReadinessScore)};">${avgReadinessScore}</div>
           <div class="stat-unit">${readinessCrowns > 0 ? `👑 ${readinessCrowns}` : ''}</div>
-        </div>
-        <div class="stat-card" style="border-left: 4px solid #f39c12;">
-          <div class="stat-label">Total Crowns</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid #f39c12;">
+        <div class="stat-label">Total Crowns</div>
           <div class="stat-value" style="color: #f39c12; font-size: 28px;">👑 ${totalCrowns}</div>
-          <div class="stat-unit">${sleepCrowns} sleep + ${readinessCrowns} readiness</div>
-        </div>
+        <div class="stat-unit">${sleepCrowns} sleep + ${readinessCrowns} readiness</div>
+      </div>
       </div>
       
       <div class="stats-column running-stats">
         <div class="stats-column-title">🏃‍♂️ Performance Metrics</div>
         <!-- Running Stats (Right Side) -->
         <!-- Totals & Maximums (Top) -->
-        <div class="stat-card distance">
-          <div class="stat-label">Total Distance</div>
-          <div class="stat-value">${totalDistance.toFixed(1)}</div>
-          <div class="stat-unit">miles</div>
-        </div>
+      <div class="stat-card distance">
+        <div class="stat-label">Total Distance</div>
+        <div class="stat-value">${totalDistance.toFixed(1)}</div>
+        <div class="stat-unit">miles</div>
+      </div>
         ${daysWithRuns > 1 ? `
         <div class="stat-card" style="border-left: 4px solid #27ae60;">
           <div class="stat-label">Longest Distance</div>
           <div class="stat-value" style="color: #27ae60;">${maxDistance.toFixed(1)}</div>
           <div class="stat-unit">miles</div>
         </div>` : ''}
-        <div class="stat-card">
-          <div class="stat-label">Runs</div>
-          <div class="stat-value">${daysWithRuns}</div>
-          <div class="stat-unit">total runs</div>
-        </div>
+      <div class="stat-card">
+        <div class="stat-label">Runs</div>
+        <div class="stat-value">${daysWithRuns}</div>
+        <div class="stat-unit">total runs</div>
+      </div>
         ${validPace.length > 1 ? `
         <div class="stat-card" style="border-left: 4px solid #2ecc71;">
           <div class="stat-label">Fastest Pace</div>
@@ -546,21 +546,21 @@ function updateStatistics(data, totalSleep, light, rem, deep, distance, sleepSco
           <div class="stat-value">${avgDistance.toFixed(1)}</div>
           <div class="stat-unit">miles per run</div>
         </div>
-        <div class="stat-card" style="border-left: 4px solid #3498db;">
-          <div class="stat-label">Avg Pace</div>
-          <div class="stat-value" style="color: #3498db;">${avgPace !== null ? formatPace(avgPace) : 'N/A'}</div>
-          <div class="stat-unit">min/mile</div>
-        </div>
-        <div class="stat-card" style="border-left: 4px solid #e74c3c;">
-          <div class="stat-label">Avg Heart Rate</div>
-          <div class="stat-value" style="color: #e74c3c;">${avgHR !== null ? Math.round(avgHR) : 'N/A'}</div>
-          <div class="stat-unit">bpm</div>
-        </div>
-        <div class="stat-card" style="border-left: 4px solid #9b59b6;">
-          <div class="stat-label">Avg Cadence</div>
-          <div class="stat-value" style="color: #9b59b6;">${avgCadence !== null ? Math.round(avgCadence) : 'N/A'}</div>
-          <div class="stat-unit">spm</div>
-        </div>
+      <div class="stat-card" style="border-left: 4px solid #3498db;">
+        <div class="stat-label">Avg Pace</div>
+        <div class="stat-value" style="color: #3498db;">${avgPace !== null ? formatPace(avgPace) : 'N/A'}</div>
+        <div class="stat-unit">min/mile</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid #e74c3c;">
+        <div class="stat-label">Avg Heart Rate</div>
+        <div class="stat-value" style="color: #e74c3c;">${avgHR !== null ? Math.round(avgHR) : 'N/A'}</div>
+        <div class="stat-unit">bpm</div>
+      </div>
+      <div class="stat-card" style="border-left: 4px solid #9b59b6;">
+        <div class="stat-label">Avg Cadence</div>
+        <div class="stat-value" style="color: #9b59b6;">${avgCadence !== null ? Math.round(avgCadence) : 'N/A'}</div>
+        <div class="stat-unit">spm</div>
+      </div>
       </div>
     `;
   }
