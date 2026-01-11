@@ -13,6 +13,147 @@ let trainingLoadAnalyzer = null;
 // Initialize Yearly Goals Planner
 let yearlyGoalsPlanner = null;
 
+// Cache sync status checking
+let cacheSyncCheckInterval = null;
+let cacheSyncCheckAttempts = 0;
+const MAX_CACHE_SYNC_CHECK_ATTEMPTS = 120; // 2 minutes max (120 * 1 second)
+
+async function checkCacheSyncStatus() {
+  try {
+    const response = await fetch('/cache/status');
+    const status = await response.json();
+    
+    console.log('[CACHE] [STATUS]', status);
+    
+    if (status.synced || status.cacheComplete) {
+      // Cache is ready, hide loading overlay
+      hideLoadingOverlay();
+      clearCacheSyncCheckInterval();
+      return true;
+    }
+    
+    if (status.syncing) {
+      // Update loading message based on progress
+      updateLoadingProgress(status);
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('[CACHE] [ERROR] Failed to check cache status:', error);
+    // If checking fails, assume sync is done and proceed
+    hideLoadingOverlay();
+    clearCacheSyncCheckInterval();
+    return true;
+  }
+}
+
+function startCacheSyncCheck() {
+  // Show loading overlay
+  showLoadingOverlay();
+  
+  // Initial check
+  checkCacheSyncStatus().then(synced => {
+    if (!synced) {
+      // Start polling every 1 second
+      cacheSyncCheckInterval = setInterval(async () => {
+        cacheSyncCheckAttempts++;
+        
+        if (cacheSyncCheckAttempts >= MAX_CACHE_SYNC_CHECK_ATTEMPTS) {
+          console.log('[CACHE] [WARNING] Max cache sync check attempts reached, proceeding anyway');
+          hideLoadingOverlay();
+          clearCacheSyncCheckInterval();
+          return;
+        }
+        
+        const synced = await checkCacheSyncStatus();
+        if (synced) {
+          clearCacheSyncCheckInterval();
+        }
+      }, 1000);
+    }
+  });
+}
+
+function clearCacheSyncCheckInterval() {
+  if (cacheSyncCheckInterval) {
+    clearInterval(cacheSyncCheckInterval);
+    cacheSyncCheckInterval = null;
+  }
+  cacheSyncCheckAttempts = 0;
+}
+
+function updateLoadingProgress(status) {
+  const loadingMessage = document.getElementById('loadingMessage');
+  const step1 = document.getElementById('step1');
+  const step2 = document.getElementById('step2');
+  const step3 = document.getElementById('step3');
+  const step4 = document.getElementById('step4');
+  
+  if (!loadingMessage) return;
+  
+  // Update steps based on cache status
+  // We can infer progress from what's cached
+  const hasActivities = status.hasActivities || false;
+  const hasSleep = status.hasSleep || false;
+  const hasReadiness = status.hasReadiness || false;
+  
+  if (step1) {
+    if (hasActivities) {
+      step1.classList.add('complete');
+      step1.classList.remove('active');
+      step1.querySelector('.loading-step-icon').textContent = '✓';
+    } else {
+      step1.classList.add('active');
+      step1.classList.remove('complete');
+      step1.querySelector('.loading-step-icon').textContent = '⏳';
+    }
+  }
+  
+  if (step2) {
+    if (hasSleep && hasReadiness) {
+      step2.classList.add('complete');
+      step2.classList.remove('active');
+      step2.querySelector('.loading-step-icon').textContent = '✓';
+      step3.classList.remove('active');
+      step4.classList.add('active');
+      loadingMessage.textContent = 'Almost done! Caching your data...';
+    } else if (hasActivities) {
+      step2.classList.add('active');
+      step2.classList.remove('complete');
+      step2.querySelector('.loading-step-icon').textContent = '⏳';
+      loadingMessage.textContent = 'Fetching Oura sleep and readiness data...';
+    }
+  }
+  
+  if (step3 && hasActivities && hasSleep && hasReadiness) {
+    step3.classList.add('complete');
+    step3.classList.remove('active');
+    step3.querySelector('.loading-step-icon').textContent = '✓';
+    loadingMessage.textContent = 'Finalizing your dashboard...';
+  }
+}
+
+function showLoadingOverlay() {
+  const overlay = document.getElementById('loadingOverlay');
+  if (overlay) {
+    overlay.classList.remove('hidden');
+    overlay.style.display = 'flex';
+  }
+}
+
+function hideLoadingOverlay() {
+  const overlay = document.getElementById('loadingOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    // Remove from DOM after animation completes
+    setTimeout(() => {
+      if (overlay && overlay.parentNode) {
+        overlay.style.display = 'none';
+      }
+    }, 300);
+  }
+}
+
 // Get chart colors based on current theme
 function getChartColors() {
   const isDark = document.documentElement.classList.contains('dark-theme');
@@ -87,6 +228,9 @@ function initCharts() {
   isInitializing = true;
   chartsInitialized = true;
   
+  // Check cache status first before loading data
+  startCacheSyncCheck();
+  
   // Set default to today if dates are not set
   const startInput = document.getElementById('startDate');
   const endInput = document.getElementById('endDate');
@@ -113,7 +257,10 @@ function initCharts() {
     }
   }
   
-  loadDataAndCreateCharts();
+  // Wait a bit for cache status check, then load data
+  setTimeout(() => {
+    loadDataAndCreateCharts();
+  }, 500);
 }
 
 async function loadData(startDate, endDate) {
@@ -626,12 +773,18 @@ async function loadDataAndCreateCharts(startDate, endDate) {
   try {
     console.log("Starting to load data...");
     
-    // Show loading indicator
-    const loadingMsg = document.createElement("p");
-    loadingMsg.id = "loading-msg";
-    loadingMsg.style.cssText = "text-align: center; color: #666; padding: 20px;";
-    loadingMsg.textContent = "Loading data...";
-    document.body.appendChild(loadingMsg);
+    // Don't show additional loading indicator if overlay is already showing
+    const overlay = document.getElementById('loadingOverlay');
+    const showSimpleLoader = !overlay || overlay.classList.contains('hidden');
+    
+    if (showSimpleLoader) {
+      // Show loading indicator only if overlay is hidden
+      const loadingMsg = document.createElement("p");
+      loadingMsg.id = "loading-msg";
+      loadingMsg.style.cssText = "text-align: center; color: #666; padding: 20px;";
+      loadingMsg.textContent = "Loading data...";
+      document.body.appendChild(loadingMsg);
+    }
 
     // Get dates from inputs if not provided
     if (!startDate || !endDate) {
@@ -668,7 +821,11 @@ async function loadDataAndCreateCharts(startDate, endDate) {
 
     const data = await loadData(startDate, endDate);
     
-    // Remove loading indicator
+    // Hide loading overlay if data loaded successfully
+    hideLoadingOverlay();
+    clearCacheSyncCheckInterval();
+    
+    // Remove simple loading indicator
     const loadingEl = document.getElementById("loading-msg");
     if (loadingEl) loadingEl.remove();
     

@@ -481,6 +481,55 @@ async function startServer() {
     });
   });
 
+  // Check cache sync status
+  app.get("/cache/status", requireAuth, async (req, res) => {
+    try {
+      const cacheFresh = await isCacheFresh(req.sessionID);
+      const timestamp = await getCacheTimestamp(req.sessionID);
+      const hasCache = timestamp !== null;
+      
+      // Check if we have any cached data
+      let hasActivities = false;
+      let hasSleep = false;
+      let hasReadiness = false;
+      
+      if (redisDataClient) {
+        const activities = await getCachedData(req.sessionID, 'strava:activities');
+        const sleep = await getCachedData(req.sessionID, 'oura:sleep');
+        const readiness = await getCachedData(req.sessionID, 'oura:readiness');
+        
+        hasActivities = activities !== null && Array.isArray(activities) && activities.length > 0;
+        hasSleep = sleep !== null && Array.isArray(sleep) && sleep.length > 0;
+        hasReadiness = readiness !== null && Array.isArray(readiness) && readiness.length > 0;
+      }
+      
+      const cacheComplete = hasActivities && hasSleep && hasReadiness;
+      
+      res.json({
+        syncing: !cacheComplete && hasCache, // Cache exists but incomplete (sync in progress)
+        synced: cacheComplete && cacheFresh, // Cache complete and fresh
+        timestamp: timestamp,
+        hasCache: hasCache,
+        cacheComplete: cacheComplete,
+        hasActivities: hasActivities,
+        hasSleep: hasSleep,
+        hasReadiness: hasReadiness
+      });
+    } catch (error) {
+      console.error('[CACHE] [ERROR] Failed to check cache status:', error);
+      res.json({
+        syncing: false,
+        synced: false,
+        timestamp: null,
+        hasCache: false,
+        cacheComplete: false,
+        hasActivities: false,
+        hasSleep: false,
+        hasReadiness: false
+      });
+    }
+  });
+
   // Logout
   app.get("/auth/logout", async (req, res) => {
     const sessionId = req.sessionID;
