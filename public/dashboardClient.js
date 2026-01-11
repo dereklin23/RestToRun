@@ -888,19 +888,11 @@ async function loadDataAndCreateCharts(startDate, endDate) {
     // Calculate and display statistics
     updateStatistics(data, totalSleep, light, rem, deep, distance, sleepScores, readinessScores, pace, averageHeartrate, maxHeartrate, cadence, isSingleDay);
     
-    // Update training load analysis (hide for single-day views)
-    if (!isSingleDay) {
-      if (!trainingLoadAnalyzer) {
-        trainingLoadAnalyzer = new TrainingLoadAnalyzer();
-      }
-      renderTrainingLoadAnalysis(data);
-    } else {
-      // Hide training load container for single day view
-      const trainingLoadContainer = document.getElementById('trainingLoadContainer');
-      if (trainingLoadContainer) {
-        trainingLoadContainer.style.display = 'none';
-      }
+    // Update training load analysis (show simplified version for single-day views)
+    if (!trainingLoadAnalyzer) {
+      trainingLoadAnalyzer = new TrainingLoadAnalyzer();
     }
+    renderTrainingLoadAnalysis(data, isSingleDay);
     
     // Update yearly goals planner (hide for single-day views)
     if (!isSingleDay) {
@@ -2620,7 +2612,7 @@ function updateGoalsWithData(data, isSingleDay = false) {
 }
 
 // Training Load Analysis Rendering
-function renderTrainingLoadAnalysis(data) {
+function renderTrainingLoadAnalysis(data, isSingleDay = false) {
   const container = document.getElementById('trainingLoadContent');
   const containerParent = document.getElementById('trainingLoadContainer');
   
@@ -2633,6 +2625,12 @@ function renderTrainingLoadAnalysis(data) {
 
   if (!trainingLoadAnalyzer) {
     trainingLoadAnalyzer = new TrainingLoadAnalyzer();
+  }
+
+  // For single-day views, show simplified version
+  if (isSingleDay || data.length === 1) {
+    renderSingleDayTrainingLoad(data, container);
+    return;
   }
 
   const analysis = trainingLoadAnalyzer.getFullAnalysis(data);
@@ -2792,6 +2790,88 @@ function renderTrainingLoadAnalysis(data) {
 
   container.innerHTML = html;
   console.log('[TRAINING LOAD] Analysis rendered');
+}
+
+// Single-Day Training Load Analysis Rendering
+function renderSingleDayTrainingLoad(data, container) {
+  if (!data || data.length === 0) {
+    container.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No data available for recovery analysis.</p>';
+    return;
+  }
+
+  const dayData = data[0]; // Get the single day's data
+  const today = new Date().toISOString().split('T')[0];
+  const dateToAnalyze = dayData.date || today;
+
+  // Calculate recovery score for this day
+  const recovery = trainingLoadAnalyzer.calculateRecoveryScore(
+    dayData.sleepScore, 
+    dayData.readinessScore
+  );
+
+  // Get daily recommendation for this day
+  const recommendation = trainingLoadAnalyzer.getDailyRecommendation(data, dateToAnalyze);
+
+  let html = '<div class="training-load-grid">';
+
+  // Today's Recovery Card
+  if (recovery && recovery.score !== null) {
+    const level = trainingLoadAnalyzer.getRecoveryLevel(recovery.score);
+    const emoji = {
+      'excellent': '💪',
+      'good': '✓',
+      'fair': '⚡',
+      'poor': '🛑'
+    }[level] || '📊';
+
+    html += `
+      <div class="training-load-card recovery">
+        <h3>${emoji} Today's Recovery</h3>
+        <div class="metric-value">${recovery.score}</div>
+        <div class="metric-label">Recovery Score</div>
+        <div class="detail-text">
+          ${recovery.source === 'combined' 
+            ? `Sleep: ${recovery.sleepScore || 'N/A'} | Readiness: ${recovery.readinessScore || 'N/A'}`
+            : `Based on ${recovery.source}`
+          }<br>
+          Level: <strong>${level.toUpperCase()}</strong>
+        </div>
+      </div>
+    `;
+  } else {
+    html += `
+      <div class="training-load-card recovery">
+        <h3>📊 Recovery Status</h3>
+        <div class="metric-label" style="font-size: 16px; margin: 15px 0; color: #7f8c8d;">
+          No recovery data available for today
+        </div>
+        <div class="detail-text">
+          Sleep and readiness scores are needed to calculate recovery score.
+        </div>
+      </div>
+    `;
+  }
+
+  // Today's Recommendation Card
+  if (recommendation) {
+    html += `
+      <div class="training-load-card recommendation" style="border-left: 5px solid ${recommendation.color};">
+        <h3>🎯 Today's Recommendation</h3>
+        <div class="metric-label" style="font-size: 16px; margin: 15px 0;">
+          ${recommendation.recommendation}
+        </div>
+        <div class="detail-text">
+          Training Intensity: <strong>${recommendation.trainingIntensity.toUpperCase()}</strong>
+          ${recommendation.distance > 0 ? `<br>Distance run: ${recommendation.distance.toFixed(1)} mi` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  html += '</div>';
+
+  container.innerHTML = html;
+  console.log('[TRAINING LOAD] Single-day analysis rendered');
 }
 
 // Yearly Goals Planner Rendering
